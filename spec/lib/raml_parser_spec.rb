@@ -44,4 +44,13 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].description).to eq 'Some requests require authentication'
     expect(raml.resources[6].description).to eq 'get the first one'
   end
+
+  it 'does not fail on any example RAML file' do
+    files = Dir.glob('spec/examples/raml/*.raml')
+    parser = RamlParser::Parser.new('ignore')
+
+    files.each { |f|
+      parser.parse_file(f)
+    }
+  end
 end
