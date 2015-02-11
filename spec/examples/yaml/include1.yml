@@ -1,0 +1,2 @@
+foo: bar
+inner: !include include2.yml
