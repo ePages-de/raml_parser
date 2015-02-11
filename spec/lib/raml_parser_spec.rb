@@ -17,11 +17,16 @@ RSpec.describe RamlParser::Parser do
     raml = parser.parse_file('spec/examples/raml/simple.raml')
 
     expect(raml.resources.map { |r| "#{r.method.upcase} #{r.uri}" }).to eq [
+      "OPTIONS http://example.com/resource",
+      "CONNECT http://example.com/resource",
+      "TRACE http://example.com/resource",
+      "PATCH http://example.com/resource",
       "DELETE http://example.com/resource",
       "PUT http://example.com/resource",
       "GET http://example.com/resource",
       "GET http://example.com/resource/{resourceId}",
       "POST http://example.com/resource/{resourceId}",
+      "HEAD http://example.com/another/resource",
       "GET http://example.com/another/resource",
       "GET http://example.com/resource-with-headers",
       "GET http://example.com/secured-resource",
@@ -37,6 +42,6 @@ RSpec.describe RamlParser::Parser do
 
     expect(raml.resources[0].description).to eq 'Some requests require authentication'
     expect(raml.resources[1].description).to eq 'Some requests require authentication'
-    expect(raml.resources[2].description).to eq 'get the first one'
+    expect(raml.resources[6].description).to eq 'get the first one'
   end
 end

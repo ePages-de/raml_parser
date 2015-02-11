@@ -84,7 +84,7 @@ module RamlParser
             }
           when /^\//
             resources += create_resources(v, root, base_resource.clone_with { |r| r.uri += k })
-          when /get|post|put|delete/
+          when /^(get|post|put|delete|head|patch|options|trace|connect)$/
             resources += create_resources(v, root, base_resource.clone_with { |r| r.method = k })
           else
             error("Unknown key '#{k}'", node)
