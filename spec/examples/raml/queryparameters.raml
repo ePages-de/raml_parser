@@ -1,0 +1,15 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+/a:
+  get:
+    queryParameters:
+      q1:
+        type: string
+  /b:
+    get:
+      queryParameters:
+        q2:
+          displayName: This is the second query parameter
+          type: string

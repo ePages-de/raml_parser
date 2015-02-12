@@ -1,0 +1,15 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+/a:
+  /b/{first}:
+    /{second}:
+      uriParameters:
+        second:
+          displayName: This is the second uri parameter
+/c/{third}:
+  uriParameters:
+    third:
+      displayName: This is the third uri parameter
+
