@@ -1,5 +1,8 @@
 # RamlParser
 
+[![build](https://img.shields.io/travis/ePages-de/raml_parser/develop.svg)](https://travis-ci.org/ePages-de/raml_parser)
+[![license](http://img.shields.io/badge/license-MIT-lightgrey.svg)](http://opensource.org/licenses/MIT)
+
 A parser for the [RAML](http://raml.org/) API modeling language.
 
 ## Installation
@@ -7,7 +10,7 @@ A parser for the [RAML](http://raml.org/) API modeling language.
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'raml_parser', :git => 'https://github.com/epages-de/raml_parser.git', :branch => 'master'
+gem 'raml_parser', :git => 'https://github.com/ePages-de/raml_parser.git', :branch => 'master'
 ```
 
 And then execute:
