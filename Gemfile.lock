@@ -1,0 +1,17 @@
+PATH
+  remote: .
+  specs:
+    raml_parser (0.0.1.pre)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rake (10.4.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bundler (~> 1.7)
+  rake (~> 10.0)
+  raml_parser!

@@ -1,4 +1,4 @@
-require 'yaml_helper'
+require 'raml_parser/yaml_helper'
 
 module RamlParser
   module Model

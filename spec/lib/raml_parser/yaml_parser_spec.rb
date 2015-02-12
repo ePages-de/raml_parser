@@ -1,4 +1,4 @@
-require 'yaml_helper'
+require 'raml_parser/yaml_helper'
 
 RSpec.describe RamlParser::YamlHelper do
   it 'reads simple YAML file' do

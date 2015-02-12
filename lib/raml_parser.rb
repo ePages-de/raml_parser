@@ -1,8 +1,8 @@
-require 'yaml_helper'
-require 'model/root'
-require 'model/resource'
-require 'model/response'
-require 'model/named_parameter'
+require 'raml_parser/yaml_helper'
+require 'raml_parser/model/root'
+require 'raml_parser/model/resource'
+require 'raml_parser/model/response'
+require 'raml_parser/model/named_parameter'
 
 module RamlParser
   class Parser
