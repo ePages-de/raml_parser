@@ -14,7 +14,7 @@ RSpec.describe RamlParser::YamlHelper do
 end
 
 RSpec.describe RamlParser::YamlTree do
-  it 'has a working maps method' do
+  it 'has a working map method' do
     yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/simple.yml')
     tree = RamlParser::YamlTree.new(yml)
 
@@ -22,16 +22,21 @@ RSpec.describe RamlParser::YamlTree do
     expect(tree.root.map { |node| node.value }).to eq ['bar', nil]
   end
 
-  it 'has a working each method' do
-    yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/simple.yml')
+  it 'has a working flatten method' do
+    yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/traversing.yml')
     tree = RamlParser::YamlTree.new(yml)
 
-    result1 = []
-    tree.root.each { |node| result1 << node.path }
-    expect(result1).to eq ['root.foo', 'root.empty']
-
-    result2 = []
-    tree.root.each { |node| result2 << node.value }
-    expect(result2).to eq ['bar', nil]
+    expect(tree.flatten.map { |n| n.path }).to eq [
+      'root',
+      'root.string',
+      'root.integer',
+      'root.hash',
+      'root.hash.apple',
+      'root.array',
+      'root.array.[0]',
+      'root.array.[1]',
+      'root.array.[1].bar',
+      'root.array.[1].bar.sub'
+    ]
   end
 end

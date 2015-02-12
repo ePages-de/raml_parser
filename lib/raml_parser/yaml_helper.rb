@@ -5,6 +5,14 @@ module RamlParser
     def initialize(root)
       @root = YamlNode.new(nil, 'root', root)
     end
+
+    def flatten
+      def recursion(current)
+        [current] + current.map { |n| recursion(n) }
+      end
+
+      recursion(@root).flatten
+    end
   end
 
   class YamlNode
@@ -33,17 +41,24 @@ module RamlParser
     end
 
     def each(&code)
-      (@value || {}).each { |k,v|
-        next_node = YamlNode.new(self, k, v)
-        code.call(next_node)
-      }
+      self.map(&code)
+      return
     end
 
     def map(&code)
-      (@value || {}).map { |k,v|
-        next_node = YamlNode.new(self, k, v)
-        code.call(next_node)
-      }
+      if @value.is_a? Hash
+        @value.map { |k,v|
+          next_node = YamlNode.new(self, k, v)
+          code.call(next_node)
+        }
+      elsif @value.is_a? Array
+        @value.each_with_index.map { |v,i|
+          next_node = YamlNode.new(self, "[#{i}]", v)
+          code.call(next_node)
+        }
+      else
+        []
+      end
     end
   end
 
