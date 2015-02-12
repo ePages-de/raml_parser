@@ -11,30 +11,30 @@ module RamlParser
     end
 
     def parse_file(path)
-      create_root(YamlHelper.read_yaml(path))
+      create_root(YamlNode.new(nil, 'root', YamlHelper.read_yaml(path)))
     end
 
     def create_root(node)
       root = Model::Root.new
 
-      (node || {}).select { |_,v| v }.each { |k,v|
-        case k
+      node.each { |n|
+        case n.key
           when 'title'
-            root.title = v
+            root.title = n.value
           when 'baseUri'
-            root.base_uri = v
+            root.base_uri = n.value if n.value
           when 'version'
-            root.version = v
+            root.version = n.value
           when 'traits'
-            root.traits = Hash[v.map { |t| t.first }]
+            root.traits = Hash[n.value.map { |t| t.first }]
           when /^\//
             # start traversing with a base resource that gets further
             # specified deeper down the RAML tree
             base_resource = Model::Resource.new
-            base_resource.uri = root.base_uri + k
-            root.resources += create_resources(v, root, base_resource)
+            base_resource.uri = root.base_uri + n.key
+            root.resources += create_resources(n, root, base_resource)
           else
-            error("Unknown key '#{k}'", node)
+            error("Unknown key '#{n.key}'", node)
         end
       }
 
@@ -44,50 +44,26 @@ module RamlParser
     def create_resources(node, root, base_resource)
       resources = []
 
-      puts node if node.is_a? String
-      (node || {}).select { |_,v| v }.each { |k,v|
-        case k
+      node.each { |n|
+        case n.key
           when 'displayName'
-            base_resource.display_name = v
+            base_resource.display_name = n.value
           when 'description'
-            base_resource.description = v
+            base_resource.description = n.value
           when 'uriParameters'
-            base_resource.uri_parameters += v.map { |k2,v2| create_named_parameter(v2, root, k2) }
+            base_resource.uri_parameters = n.map { |n2| create_named_parameter(n2, root) }
           when 'queryParameters'
-            base_resource.query_parameters += v.map { |k2,v2| create_named_parameter(v2, root, k2) }
+            base_resource.query_parameters = n.map { |n2| create_named_parameter(n2, root) }
           when 'responses'
-            base_resource.responses += v.map { |k2,v2| create_response(v2, root, k2) }
+            base_resource.responses = n.map { |n2| create_response(n2, root) }
           when 'is'
-            v.each { |t|
-              if t.is_a? String and root.traits[t]
-                root.traits[t].each { |k2,v2|
-                  case k2
-                    when 'displayName'
-                      base_resource.display_name = v2
-                    when 'description'
-                      base_resource.description = v2
-                    when 'uriParameters'
-                      base_resource.uri_parameters += v2.map { |k3,v3| create_named_parameter(v3, root, k3) }
-                    when 'queryParameters'
-                      base_resource.query_parameters += v2.map { |k3,v3| create_named_parameter(v3, root, k3) }
-                    when 'responses'
-                      base_resource.responses += v2.map { |k3,v3| create_response(v3, root, k3) }
-                    else
-                      error("Mixing in #{k2} is supported yet", node)
-                  end
-                }
-              elsif t.is_a? String and not root.traits[t]
-                error("Could not find trait #{t}", node)
-              else
-                error("Parametrized traits are not supported yet", node)
-              end
-            }
+            n.value.each { |t| mixin_trait(n, root, base_resource) }
           when /^\//
-            resources += create_resources(v, root, base_resource.clone_with { |r| r.uri += k })
+            resources += create_resources(n, root, base_resource.clone_with { |r| r.uri += n.key })
           when /^(get|post|put|delete|head|patch|options|trace|connect)$/
-            resources += create_resources(v, root, base_resource.clone_with { |r| r.method = k })
+            resources += create_resources(n, root, base_resource.clone_with { |r| r.method = n.key })
           else
-            error("Unknown key '#{k}'", node)
+            error("Unknown key '#{n.key}'", node)
         end
       }
 
@@ -95,54 +71,81 @@ module RamlParser
       resources
     end
 
-    def create_named_parameter(node, root, name)
+    def create_named_parameter(node, root)
       named_parameter = Model::NamedParameter.new
-      named_parameter.name = name
+      named_parameter.name = node.key
 
-      (node || {}).select { |_,v| v }.each { |k,v|
-        case k
+      node.each { |n|
+        case n.key
           when 'displayName'
-            named_parameter.display_name = v
+            named_parameter.display_name = n.value
           when 'description'
-            named_parameter.description = v
+            named_parameter.description = n.value
           when 'type'
-            named_parameter.type = v
+            named_parameter.type = n.value
           when 'required'
-            named_parameter.required = v
+            named_parameter.required = n.value
           when 'default'
-            named_parameter.default = v
+            named_parameter.default = n.value
           when 'example'
-            named_parameter.example = v
+            named_parameter.example = n.value
           when 'minimum'
-            named_parameter.minimum = v
+            named_parameter.minimum = n.value
           when 'maximum'
-            named_parameter.maximum = v
+            named_parameter.maximum = n.value
           when 'repeat'
-            named_parameter.repeat = v
+            named_parameter.repeat = n.value
           when 'enum'
-            named_parameter.enum = v
+            named_parameter.enum = n.value
           else
-            error("Unknown key '#{k}'", node)
+            error("Unknown key '#{n.key}'", node)
         end
       }
 
       named_parameter
     end
 
-    def create_response(node, root, status_code)
+    def create_response(node, root)
       response = Model::Response.new
-      response.status_code = status_code
+      response.status_code = node.key
 
-      (node || {}).select { |_,v| v }.each { |k,v|
-        case k
+      node.each { |n|
+        case n.key
           when 'description'
-            response.description = v
+            response.description = n.value
           else
-            error("Unknown key '#{k}'", node)
+            error("Unknown key '#{n.key}'", node)
         end
       }
 
       response
+    end
+
+    def mixin_trait(node, root, base_resource)
+      node.value.each { |t|
+        if t.is_a? String and root.traits[t]
+          YamlNode.new(node.root, 'traits[' + t + ']', root.traits[t]).each { |n|
+            case n.key
+              when 'displayName'
+                base_resource.display_name = n.value
+              when 'description'
+                base_resource.description = n.value
+              when 'uriParameters'
+                base_resource.uri_parameters += n.map { |n2| create_named_parameter(n2, root) }
+              when 'queryParameters'
+                base_resource.query_parameters += n.map { |n2| create_named_parameter(n2, root) }
+              when 'responses'
+                base_resource.responses += n.map { |n2| create_response(n2, root) }
+              else
+                error("Mixing in #{n.key} is supported yet", n)
+            end
+          }
+        elsif t.is_a? String and not root.traits[t]
+          error("Could not find trait #{t}", node)
+        else
+          error("Parametrized traits are not supported yet", node)
+        end
+      }
     end
 
     def finalize_resource(resource, root)
@@ -175,9 +178,9 @@ module RamlParser
       case @error_handling
         when 'ignore'
         when 'warning'
-          puts "Warning: '#{message}'"
+          puts "Warning: '#{message}' at #{node.path}"
         else
-          raise "Error: '#{message}'"
+          raise "Error: '#{message}' at #{node.path}"
       end
     end
   end

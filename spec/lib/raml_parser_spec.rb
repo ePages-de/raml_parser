@@ -26,6 +26,7 @@ RSpec.describe RamlParser::Parser do
       "GET http://example.com/resource",
       "GET http://example.com/resource/{resourceId}",
       "POST http://example.com/resource/{resourceId}",
+      "CONNECT http://example.com/another/resource",
       "HEAD http://example.com/another/resource",
       "GET http://example.com/another/resource",
       "GET http://example.com/resource-with-headers",
