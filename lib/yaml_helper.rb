@@ -1,4 +1,52 @@
 module RamlParser
+  class YamlTree
+    attr_reader :root
+
+    def initialize(root)
+      @root = YamlNode.new(nil, 'root', root)
+    end
+  end
+
+  class YamlNode
+    attr_reader :parent, :key, :value
+
+    def initialize(parent, key, value)
+      @parent = parent
+      @key = key
+      @value = value
+    end
+
+    def root
+      if @parent != nil
+        @parent.root
+      else
+        self
+      end
+    end
+
+    def path
+      if @parent != nil
+        "#{@parent.path}.#{@key}"
+      else
+        @key
+      end
+    end
+
+    def each(&code)
+      (@value || {}).each { |k,v|
+        next_node = YamlNode.new(self, k, v)
+        code.call(next_node)
+      }
+    end
+
+    def map(&code)
+      (@value || {}).map { |k,v|
+        next_node = YamlNode.new(self, k, v)
+        code.call(next_node)
+      }
+    end
+  end
+
   class YamlHelper
     require 'yaml'
 
