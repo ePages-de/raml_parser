@@ -53,4 +53,18 @@ RSpec.describe RamlParser::Parser do
       parser.parse_file(f)
     }
   end
+
+  it 'finds URI parameters' do
+    parser = RamlParser::Parser.new(unknown_handling)
+    raml = parser.parse_file('spec/examples/raml/simple.raml')
+
+    expect(raml.resources[7].uri_parameters.map { |p| p.name }).to eq ['resourceId']
+  end
+
+  it 'finds query parameters' do
+    parser = RamlParser::Parser.new(unknown_handling)
+    raml = parser.parse_file('spec/examples/raml/simple.raml')
+
+    expect(raml.resources[7].query_parameters.map { |p| p.name }).to eq ['filter']
+  end
 end
