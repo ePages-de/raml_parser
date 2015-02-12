@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'raml_parser'
-  s.version     = '0.0.0'
+  s.version     = '0.0.1.pre'
   s.date        = '2015-02-11'
   s.summary     = 'A parser for RAML API specifications'
   s.description = 'A parser for RAML API specifications'
