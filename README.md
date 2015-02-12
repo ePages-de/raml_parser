@@ -2,5 +2,5 @@
 
 ~~~ ruby
 # Gemfile
-gem 'raml_parser', :git => 'https://github.com/choffmeister/raml_parser.git', :branch => 'master'
+gem 'raml_parser', :git => 'https://github.com/epages-de/raml_parser.git', :branch => 'master'
 ~~~

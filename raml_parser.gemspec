@@ -14,6 +14,6 @@ Gem::Specification.new do |s|
     'lib/model/response.rb',
     'lib/model/named_parameter.rb'
   ]
-  s.homepage    = 'https://github.com/choffmeister/raml_parser'
+  s.homepage    = 'https://github.com/epages-de/raml_parser'
   s.license     = 'MIT'
 end
