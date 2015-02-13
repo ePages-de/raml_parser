@@ -18,25 +18,21 @@ module RamlParser
     end
 
     def parse_root(node)
-      title = nil
-      base_uri = nil
-      version = nil
-      traits = {}
-      resources = []
+      root = Model::Root.new
 
       node.each do |n|
         case n.key
           when 'title'
-            title = n.value
+            root.title = n.value
           when 'baseUri'
-            base_uri = n.value
+            root.base_uri = n.value
           when 'version'
-            version = n.value
+            root.version = n.value
           when 'traits'
             n.each do |n2|
               n2.each do |n3|
                 trait = parse_trait(n3)
-                traits[trait.name] = trait
+                root.traits[trait.name] = trait
               end
             end
           when 'resourceTypes'
@@ -62,44 +58,36 @@ module RamlParser
         end
       end
 
-      resources += node.map do |n|
+      root.resources += node.map { |n|
         if n.key =~ /^\//
-          parse_resource(n, base_uri || '', '', {}, traits)
+          parse_resource(n, root.base_uri || '', '', {}, root.traits)
         else
           []
         end
-      end
+      }.flatten
 
-      Model::Root.new(
-          title,
-          base_uri,
-          version,
-          traits,
-          resources.flatten
-      )
+      root
     end
 
     def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, traits)
-      display_name = nil
-      description = nil
-      uri_parameters = parent_uri_parameters
-      methods = {}
+      resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
+      resource.uri_parameters = parent_uri_parameters
 
       relative_uri_uri_parameters = node.key.scan(/\{([a-zA-Z\_]+)\}/).map { |m| m.first }
       relative_uri_uri_parameters.each do |name|
-        uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
+        resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
       end
 
       node.each { |n|
         case n.key
           when 'displayName'
-            display_name = n.value
+            resource.display_name = n.value
           when 'description'
-            description = n.value
+            resource.description = n.value
           when 'uriParameters'
             n.each do |n2|
               if relative_uri_uri_parameters.include? n2.key
-                uri_parameters[n2.key] = parse_named_parameter(n2)
+                resource.uri_parameters[n2.key] = parse_named_parameter(n2)
               else
                 semantic_error(n, "Found URI parameter definition for non existent key '#{n2.key}'")
               end
@@ -111,7 +99,7 @@ module RamlParser
           when 'securedBy'
             key_not_yet_supported(node, n.key)
           when /^(get|post|put|delete|head|patch|options|trace|connect)$/
-            methods[n.key] = parse_method(n, traits)
+            resource.methods[n.key] = parse_method(n, traits)
           when /^\//
             # gets handled in the next step
           else
@@ -121,136 +109,75 @@ module RamlParser
 
       child_resources = node.map do |n|
         if n.key =~ /^\//
-          parse_resource(n, parent_absolute_uri + n.key, parent_relative_uri + n.key, uri_parameters.clone, traits)
+          parse_resource(n, parent_absolute_uri + n.key, parent_relative_uri + n.key, resource.uri_parameters.clone, traits)
         else
           []
         end
       end
 
-      resource = Model::Resource.new(
-          parent_absolute_uri + node.key,
-          parent_relative_uri + node.key,
-          display_name || parent_relative_uri + node.key,
-          description,
-          uri_parameters,
-          methods
-      )
-
       [resource] + child_resources
     end
 
     def parse_named_parameter(node)
-      name = node.key
-      display_name = nil
-      description = nil
-      type = nil
-      required = nil
-      default = nil
-      example = nil
-      min_length = nil
-      max_length = nil
-      minimum = nil
-      maximum = nil
-      repeat = nil
-      enum = nil
-      pattern = nil
+      named_parameter = Model::NamedParameter.new(node.key)
 
       node.each { |n|
         case n.key
           when 'type'
-            type = n.value
+            named_parameter.type = n.value
           when 'displayName'
-            display_name = n.value
+            named_parameter.display_name = n.value
           when 'description'
-            description = n.value
+            named_parameter.description = n.value
           when 'required'
-            required = n.value
+            named_parameter.required = n.value
           when 'default'
-            default = n.value
+            named_parameter.default = n.value
           when 'example'
-            example = n.value
+            named_parameter.example = n.value
           when 'minLength'
-            min_length = n.value
+            named_parameter.min_length = n.value
           when 'maxLength'
-            max_length = n.value
+            named_parameter.max_length = n.value
           when 'minimum'
-            minimum = n.value
+            named_parameter.minimum = n.value
           when 'maximum'
-            maximum = n.value
+            named_parameter.maximum = n.value
           when 'repeat'
-            repeat = n.value
+            named_parameter.repeat = n.value
           when 'enum'
-            enum = n.value
+            named_parameter.enum = n.value
           when 'pattern'
-            pattern = n.value
+            named_parameter.pattern = n.value
           else
-            key_unknown(node, n.key)
+            named_parameter.key_unknown(node, n.key)
         end
       }
 
-      Model::NamedParameter.new(
-          name,
-          type || 'string',
-          display_name || name,
-          description,
-          required != nil ? required : false,
-          default,
-          example,
-          min_length,
-          max_length,
-          minimum,
-          maximum,
-          repeat,
-          enum,
-          pattern
-      )
+      named_parameter.type = named_parameter.type || 'string'
+      named_parameter.display_name = named_parameter.display_name || named_parameter.name
+      named_parameter.required = named_parameter.required != nil ? named_parameter.required : false
+
+      named_parameter
     end
 
     def parse_method(node, traits)
-      method = node.key.upcase
-      display_name = nil
-      description = nil
-      query_parameters = {}
+      method = Model::Method.new(node.key.upcase)
 
       node.each { |n|
         case n.key
           when 'displayName'
-            display_name = n.value
+            method.display_name = n.value
           when 'description'
-            description = n.value
+            method.description = n.value
           when 'queryParameters'
-            n.each do |n2|
-              query_parameters[n2.key] = parse_named_parameter(n2)
-            end
+            n.each { |n2| method.query_parameters[n2.key] = parse_named_parameter(n2) }
           when 'body'
             key_not_yet_supported(node, n.key)
           when 'responses'
             key_not_yet_supported(node, n.key)
           when 'is'
-            n.each do |n2|
-              if n2.value.is_a? String
-                if traits.has_key? n2.value
-                  trait = traits[n2.value]
-                  if trait.display_name != nil
-                    display_name = trait.display_name
-                  end
-
-                  if trait.description != nil
-                    description = trait.description
-                  end
-
-                  if trait.query_parameters != nil
-                    trait.query_parameters.each do |name,param|
-                      query_parameters[name] = param
-                    end
-                  end
-                else
-                  semantic_error(n, "Importing unknown trait #{n2.value}")
-                end
-              else
-                not_yet_supported(n, 'Parametrized traits')
-              end
-            end
+            n.each { |n2| mixin_trait(method, n2, traits) }
           when 'securedBy'
             key_not_yet_supported(node, n.key)
           when 'headers'
@@ -260,24 +187,21 @@ module RamlParser
         end
       }
 
-      Model::Method.new(method, display_name, description, query_parameters)
+      method
     end
 
     def parse_trait(node)
-      name = node.key
-      display_name = nil
-      description = nil
-      query_parameters = {}
+      trait = Model::Trait.new(node.key)
 
       node.each do |n|
         case n.key
           when 'displayName'
-            display_name = n.value
+            trait.display_name = n.value
           when 'description'
-            description = n.value
+            trait.description = n.value
           when 'queryParameters'
             n.each do |n2|
-              query_parameters[n2.key] = parse_named_parameter(n2)
+              trait.query_parameters[n2.key] = parse_named_parameter(n2)
             end
           when 'headers'
             key_not_yet_supported(node, n.key)
@@ -288,7 +212,32 @@ module RamlParser
         end
       end
 
-      Model::Trait.new(name, display_name, description, query_parameters)
+      trait
+    end
+
+    def mixin_trait(method, node, traits)
+      if node.value.is_a? String
+        if traits.has_key? node.value
+          trait = traits[node.value]
+          if trait.display_name != nil
+            method.display_name = trait.display_name
+          end
+
+          if trait.description != nil
+            method.description = trait.description
+          end
+
+          if trait.query_parameters != nil
+            trait.query_parameters.each do |name,param|
+              method.query_parameters[name] = param
+            end
+          end
+        else
+          semantic_error(node, "Importing unknown trait #{n2.value}")
+        end
+      else
+        not_yet_supported(node, 'Parametrized traits')
+      end
     end
 
     def key_not_yet_supported(node, key)

@@ -1,9 +1,9 @@
 module RamlParser
   module Model
     class Root
-      attr_reader :title, :base_uri, :version, :traits, :resources
+      attr_accessor :title, :base_uri, :version, :traits, :resources
 
-      def initialize(title, base_uri, version, traits, resources)
+      def initialize(title = nil, base_uri = nil, version = nil, traits = {}, resources = [])
         @title = title
         @base_uri = base_uri
         @version = version
@@ -13,9 +13,9 @@ module RamlParser
     end
 
     class Resource
-      attr_reader :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods
+      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods
 
-      def initialize(absolute_uri, relative_uri, display_name, description, uri_parameters, methods)
+      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {})
         @absolute_uri = absolute_uri
         @relative_uri = relative_uri
         @display_name = display_name
@@ -26,9 +26,9 @@ module RamlParser
     end
 
     class Method
-      attr_reader :method, :display_name, :description, :query_parameters
+      attr_accessor :method, :display_name, :description, :query_parameters
 
-      def initialize(method, display_name, description, query_parameters)
+      def initialize(method, display_name = nil, description = nil, query_parameters = {})
         @method = method
         @display_name = display_name
         @description = description
@@ -37,9 +37,9 @@ module RamlParser
     end
 
     class NamedParameter
-      attr_reader :name, :type, :display_name, :description, :required, :default, :example, :min_length, :max_length, :minimum, :maximum, :repeat, :enum, :pattern
+      attr_accessor :name, :type, :display_name, :description, :required, :default, :example, :min_length, :max_length, :minimum, :maximum, :repeat, :enum, :pattern
 
-      def initialize(name, type, display_name, description = nil, required = false, default = nil, example = nil, min_length = nil, max_length = nil, minimum = nil, maximum = nil, repeat = nil, enum = nil, pattern = nil)
+      def initialize(name, type = nil, display_name = nil, description = nil, required = false, default = nil, example = nil, min_length = nil, max_length = nil, minimum = nil, maximum = nil, repeat = nil, enum = nil, pattern = nil)
         @name = name
         @type = type
         @display_name = display_name
@@ -58,9 +58,9 @@ module RamlParser
     end
 
     class Trait
-      attr_reader :name, :display_name, :description, :query_parameters
+      attr_accessor :name, :display_name, :description, :query_parameters
 
-      def initialize(name, display_name, description, query_parameters)
+      def initialize(name, display_name = nil, description = nil, query_parameters = {})
         @name = name
         @display_name = display_name
         @description = description

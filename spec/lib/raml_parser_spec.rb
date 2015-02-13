@@ -54,7 +54,7 @@ RSpec.describe RamlParser::Parser do
   end
 
   it 'parses traits' do
-    parser = RamlParser::Parser.new({ :not_yet_supported => :warning })
+    parser = RamlParser::Parser.new
     raml = parser.parse_file('spec/examples/raml/traits.raml')
 
     expect(raml.traits.map { |name,_| name }).to eq ['searchable', 'sortable']
@@ -62,7 +62,7 @@ RSpec.describe RamlParser::Parser do
   end
 
   it 'mixes in traits' do
-    parser = RamlParser::Parser.new({ :not_yet_supported => :warning })
+    parser = RamlParser::Parser.new
     raml = parser.parse_file('spec/examples/raml/traits.raml')
 
     expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
