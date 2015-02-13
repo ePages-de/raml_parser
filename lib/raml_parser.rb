@@ -74,6 +74,12 @@ module RamlParser
       resource.uri_parameters = parent_uri_parameters
 
       relative_uri_uri_parameters = node.key.scan(/\{([a-zA-Z\_]+)\}/).map { |m| m.first }
+
+      if relative_uri_uri_parameters.include? 'mediaTypeExtension'
+        not_yet_supported(node, "URI parameter named mediaTypeExtension")
+        return []
+      end
+
       relative_uri_uri_parameters.each do |name|
         resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
       end
