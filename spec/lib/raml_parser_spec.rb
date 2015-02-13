@@ -22,8 +22,11 @@ RSpec.describe RamlParser::Parser do
 
     expect(raml.resources.map { |r| r.absolute_uri }).to eq [
       'http://localhost:3000/first',
-      'http://localhost:3000/second/second',
-      'http://localhost:3000/third'
+      'http://localhost:3000/first/second',
+      'http://localhost:3000/third',
+      'http://localhost:3000/with',
+      'http://localhost:3000/with/{uri}',
+      'http://localhost:3000/with/{uri}/{params}'
     ]
   end
 

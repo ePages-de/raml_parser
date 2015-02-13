@@ -115,7 +115,7 @@ module RamlParser
 
       child_resources = node.map do |n|
         if n.key =~ /^\//
-          parse_resource(n, parent_absolute_uri + n.key, parent_relative_uri + n.key, resource.uri_parameters.clone, traits)
+          parse_resource(n, resource.absolute_uri, resource.relative_uri, resource.uri_parameters.clone, traits)
         else
           []
         end
