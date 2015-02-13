@@ -6,7 +6,7 @@ module RamlParser
     def initialize(options = {})
       defaults = {
         :semantic_error => :error,
-        :unknown_key => :error,
+        :key_unknown => :error,
         :not_yet_supported => :warning
       }
       @options = defaults.merge(options)
@@ -40,31 +40,31 @@ module RamlParser
               end
             end
           when 'resourceTypes'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'documentation'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'securitySchemes'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'securedBy'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'mediaType'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'schemas'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'baseUriParameters'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'uriParameters'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when /^\//
             # gets handled in the next step
           else
-            unknown_key(node, n.key)
+            key_unknown(node, n.key)
         end
       end
 
       resources += node.map do |n|
         if n.key =~ /^\//
-          parse_resource(n, base_uri || '', '', {})
+          parse_resource(n, base_uri || '', '', {}, traits)
         else
           []
         end
@@ -79,7 +79,7 @@ module RamlParser
       )
     end
 
-    def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters)
+    def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, traits)
       display_name = nil
       description = nil
       uri_parameters = parent_uri_parameters
@@ -105,23 +105,23 @@ module RamlParser
               end
             end
           when 'is'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'type'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'securedBy'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when /^(get|post|put|delete|head|patch|options|trace|connect)$/
-            methods[n.key] = parse_method(n)
+            methods[n.key] = parse_method(n, traits)
           when /^\//
             # gets handled in the next step
           else
-            unknown_key(node, n.key)
+            key_unknown(node, n.key)
         end
       }
 
       child_resources = node.map do |n|
         if n.key =~ /^\//
-          parse_resource(n, parent_absolute_uri + n.key, parent_relative_uri + n.key, uri_parameters.clone)
+          parse_resource(n, parent_absolute_uri + n.key, parent_relative_uri + n.key, uri_parameters.clone, traits)
         else
           []
         end
@@ -184,7 +184,7 @@ module RamlParser
           when 'pattern'
             pattern = n.value
           else
-            unknown_key(node, n.key)
+            key_unknown(node, n.key)
         end
       }
 
@@ -206,7 +206,7 @@ module RamlParser
       )
     end
 
-    def parse_method(node)
+    def parse_method(node, traits)
       method = node.key.upcase
       display_name = nil
       description = nil
@@ -223,17 +223,40 @@ module RamlParser
               query_parameters[n2.key] = parse_named_parameter(n2)
             end
           when 'body'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'responses'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'is'
-            not_yet_supported(node, n.key)
+            n.each do |n2|
+              if n2.value.is_a? String
+                if traits.has_key? n2.value
+                  trait = traits[n2.value]
+                  if trait.display_name != nil
+                    display_name = trait.display_name
+                  end
+
+                  if trait.description != nil
+                    description = trait.description
+                  end
+
+                  if trait.query_parameters != nil
+                    trait.query_parameters.each do |name,param|
+                      query_parameters[name] = param
+                    end
+                  end
+                else
+                  semantic_error(n, "Importing unknown trait #{n2.value}")
+                end
+              else
+                not_yet_supported(n, 'Parametrized traits')
+              end
+            end
           when 'securedBy'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'headers'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           else
-            unknown_key(node, n.key)
+            key_unknown(node, n.key)
         end
       }
 
@@ -257,18 +280,18 @@ module RamlParser
               query_parameters[n2.key] = parse_named_parameter(n2)
             end
           when 'headers'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           when 'responses'
-            not_yet_supported(node, n.key)
+            key_not_yet_supported(node, n.key)
           else
-            unknown_key(node, n.key)
+            key_unknown(node, n.key)
         end
       end
 
       Model::Trait.new(name, display_name, description, query_parameters)
     end
 
-    def not_yet_supported(node, key)
+    def key_not_yet_supported(node, key)
       message = "Not yet supported key '#{key}' at node '#{node.path}"
       case @options[:not_yet_supported]
         when :ignore
@@ -279,9 +302,20 @@ module RamlParser
       end
     end
 
-    def unknown_key(node, key)
+    def key_unknown(node, key)
       message = "Unknown key '#{key}' at node '#{node.path}"
-      case @options[:unknown_key]
+      case @options[:key_unknown]
+        when :ignore
+        when :warning
+          puts message
+        else
+          raise message
+      end
+    end
+
+    def not_yet_supported(node, msg)
+      message = "Not yet supported '#{msg}' at node '#{node.path}"
+      case @options[:not_yet_supported]
         when :ignore
         when :warning
           puts message

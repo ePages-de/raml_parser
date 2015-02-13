@@ -4,6 +4,7 @@ title: Example API
 baseUri: http://localhost:3000
 traits:
   - searchable:
+      displayName: Foo
       description: This is searchable
       queryParameters:
         q:
@@ -17,7 +18,8 @@ traits:
     is: [ searchable, sortable ]
   /b:
     get:
-      is: [ searchable ]
+      is: [ searchable, sortable ]
+      displayName: /a/b
       description: This is resource /a/b
       queryParameters:
         sort:

@@ -3,7 +3,7 @@ require 'raml_parser'
 RSpec.describe RamlParser::Parser do
   all_errors = {
       :semantic_error => :error,
-      :unknown_key => :error,
+      :key_unknown => :error,
       :not_yet_supported => :error
   }
 
@@ -59,6 +59,19 @@ RSpec.describe RamlParser::Parser do
 
     expect(raml.traits.map { |name,_| name }).to eq ['searchable', 'sortable']
     expect(raml.traits.map { |_,trait| trait.name }).to eq ['searchable', 'sortable']
+  end
+
+  it 'mixes in traits' do
+    parser = RamlParser::Parser.new({ :not_yet_supported => :warning })
+    raml = parser.parse_file('spec/examples/raml/traits.raml')
+
+    expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
+    expect(raml.resources[0].methods['get'].display_name).to eq 'Foo'
+    expect(raml.resources[0].methods['get'].description).to eq 'This is sortable'
+
+    expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order', 'sort']
+    expect(raml.resources[1].methods['get'].display_name).to eq '/a/b'
+    expect(raml.resources[1].methods['get'].description).to eq 'This is resource /a/b'
   end
 
   it 'does not fail on any example RAML file' do
