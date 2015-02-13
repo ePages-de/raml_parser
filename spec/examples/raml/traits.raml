@@ -1,0 +1,27 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+traits:
+  - searchable:
+      displayName: Foo
+      description: This is searchable
+      queryParameters:
+        q:
+  - sortable:
+      description: This is sortable
+      queryParameters:
+        key:
+        order:
+/a:
+  get:
+    is: [ searchable, sortable ]
+  /b:
+    get:
+      is: [ searchable, sortable ]
+      displayName: /a/b
+      description: This is resource /a/b
+      queryParameters:
+        sort:
+        q:
+          displayName: This is the search term

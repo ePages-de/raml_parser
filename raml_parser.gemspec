@@ -1,19 +1,24 @@
-Gem::Specification.new do |s|
-  s.name        = 'raml_parser'
-  s.version     = '0.0.0'
-  s.date        = '2015-02-11'
-  s.summary     = 'A parser for RAML API specifications'
-  s.description = 'A parser for RAML API specifications'
-  s.authors     = ['Christian Hoffmeister']
-  s.email       = 'mail@choffmeister.de'
-  s.files       = [
-    'lib/raml_parser.rb',
-    'lib/yaml_helper.rb',
-    'lib/model/root.rb',
-    'lib/model/resource.rb',
-    'lib/model/response.rb',
-    'lib/model/named_parameter.rb'
-  ]
-  s.homepage    = 'https://github.com/epages-de/raml_parser'
-  s.license     = 'MIT'
+# coding: utf-8
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'raml_parser/version'
+
+Gem::Specification.new do |spec|
+  spec.name          = "raml_parser"
+  spec.version       = RamlParser::VERSION
+  spec.authors       = ["Christian Hoffmeister"]
+  spec.email         = ["mail@choffmeister.de"]
+  spec.summary       = "A parser for the RAML API modeling language."
+  spec.description   = ""
+  spec.homepage      = "https://github.com/ePages-de/raml_parser"
+  spec.license       = "MIT"
+
+  spec.files         = `git ls-files -z`.split("\x0")
+  spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
+  spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
+  spec.require_paths = ["lib"]
+
+  spec.add_development_dependency "bundler", "~> 1.7"
+  spec.add_development_dependency "rake", "~> 10.0"
+  spec.add_development_dependency "rspec", "~> 3.2.0"
 end

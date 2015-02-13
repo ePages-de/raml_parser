@@ -1,0 +1,8 @@
+string: 'foobar'
+integer: 10
+hash:
+  apple: pie
+array:
+  - foo
+  - bar:
+      sub: 'element'

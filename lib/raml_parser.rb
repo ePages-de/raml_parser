@@ -1,94 +1,150 @@
-require 'yaml_helper'
-require 'model/root'
-require 'model/resource'
-require 'model/response'
-require 'model/named_parameter'
+require 'raml_parser/yaml_helper'
+require 'raml_parser/model'
 
 module RamlParser
   class Parser
-    def initialize(unknown_handling = 'error')
-      @error_handling = unknown_handling
+    def initialize(options = {})
+      defaults = {
+        :semantic_error => :error,
+        :key_unknown => :error,
+        :not_yet_supported => :warning
+      }
+      @options = defaults.merge(options)
     end
 
     def parse_file(path)
-      create_root(YamlNode.new(nil, 'root', YamlHelper.read_yaml(path)))
+      tree = YamlTree.new(YamlHelper.read_yaml(path))
+      parse_root(tree.root)
     end
 
-    def create_root(node)
+    def parse_root(node)
       root = Model::Root.new
 
-      node.each { |n|
+      node.each do |n|
         case n.key
           when 'title'
             root.title = n.value
           when 'baseUri'
-            root.base_uri = n.value if n.value
+            root.base_uri = n.value
           when 'version'
             root.version = n.value
           when 'traits'
-            root.traits = Hash[n.value.map { |t| t.first }]
+            n.each do |n2|
+              n2.each do |n3|
+                trait = parse_trait(n3)
+                root.traits[trait.name] = trait
+              end
+            end
+          when 'resourceTypes'
+            key_not_yet_supported(node, n.key)
+          when 'documentation'
+            key_not_yet_supported(node, n.key)
+          when 'securitySchemes'
+            key_not_yet_supported(node, n.key)
+          when 'securedBy'
+            key_not_yet_supported(node, n.key)
+          when 'mediaType'
+            key_not_yet_supported(node, n.key)
+          when 'schemas'
+            key_not_yet_supported(node, n.key)
+          when 'baseUriParameters'
+            key_not_yet_supported(node, n.key)
+          when 'uriParameters'
+            key_not_yet_supported(node, n.key)
           when /^\//
-            # start traversing with a base resource that gets further
-            # specified deeper down the RAML tree
-            base_resource = Model::Resource.new
-            base_resource.uri = root.base_uri + n.key
-            root.resources += create_resources(n, root, base_resource)
+            # gets handled in the next step
           else
-            error("Unknown key '#{n.key}'", node)
+            key_unknown(node, n.key)
         end
-      }
+      end
+
+      root.resources += node.map { |n|
+        if n.key =~ /^\//
+          parse_resource(n, root.base_uri || '', '', {}, root.traits)
+        else
+          []
+        end
+      }.flatten
 
       root
     end
 
-    def create_resources(node, root, base_resource)
-      resources = []
+    def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, traits)
+      resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
+      resource.uri_parameters = parent_uri_parameters
+
+      relative_uri_uri_parameters = node.key.scan(/\{([a-zA-Z\_]+)\}/).map { |m| m.first }
+
+      if relative_uri_uri_parameters.include? 'mediaTypeExtension'
+        not_yet_supported(node, "URI parameter named mediaTypeExtension")
+        return []
+      end
+
+      relative_uri_uri_parameters.each do |name|
+        resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
+      end
 
       node.each { |n|
         case n.key
           when 'displayName'
-            base_resource.display_name = n.value
+            resource.display_name = n.value
           when 'description'
-            base_resource.description = n.value
+            resource.description = n.value
           when 'uriParameters'
-            base_resource.uri_parameters = n.map { |n2| create_named_parameter(n2, root) }
-          when 'queryParameters'
-            base_resource.query_parameters = n.map { |n2| create_named_parameter(n2, root) }
-          when 'responses'
-            base_resource.responses = n.map { |n2| create_response(n2, root) }
+            n.each do |n2|
+              if relative_uri_uri_parameters.include? n2.key
+                resource.uri_parameters[n2.key] = parse_named_parameter(n2)
+              else
+                semantic_error(n, "Found URI parameter definition for non existent key '#{n2.key}'")
+              end
+            end
           when 'is'
-            n.value.each { |t| mixin_trait(n, root, base_resource) }
-          when /^\//
-            resources += create_resources(n, root, base_resource.clone_with { |r| r.uri += n.key })
+            key_not_yet_supported(node, n.key)
+          when 'type'
+            key_not_yet_supported(node, n.key)
+          when 'securedBy'
+            key_not_yet_supported(node, n.key)
           when /^(get|post|put|delete|head|patch|options|trace|connect)$/
-            resources += create_resources(n, root, base_resource.clone_with { |r| r.method = n.key })
+            resource.methods[n.key] = parse_method(n, traits)
+          when /^\//
+            # gets handled in the next step
           else
-            error("Unknown key '#{n.key}'", node)
+            key_unknown(node, n.key)
         end
       }
 
-      resources << finalize_resource(base_resource, root) if base_resource.uri and base_resource.method
-      resources
+      child_resources = node.map do |n|
+        if n.key =~ /^\//
+          parse_resource(n, resource.absolute_uri, resource.relative_uri, resource.uri_parameters.clone, traits)
+        else
+          []
+        end
+      end
+
+      [resource] + child_resources
     end
 
-    def create_named_parameter(node, root)
-      named_parameter = Model::NamedParameter.new
-      named_parameter.name = node.key
+    def parse_named_parameter(node)
+      named_parameter = Model::NamedParameter.new(node.key)
 
       node.each { |n|
         case n.key
+          when 'type'
+            named_parameter.type = n.value
           when 'displayName'
             named_parameter.display_name = n.value
           when 'description'
             named_parameter.description = n.value
-          when 'type'
-            named_parameter.type = n.value
           when 'required'
             named_parameter.required = n.value
           when 'default'
             named_parameter.default = n.value
           when 'example'
             named_parameter.example = n.value
+          when 'minLength'
+            named_parameter.min_length = n.value
+          when 'maxLength'
+            named_parameter.max_length = n.value
           when 'minimum'
             named_parameter.minimum = n.value
           when 'maximum'
@@ -97,90 +153,178 @@ module RamlParser
             named_parameter.repeat = n.value
           when 'enum'
             named_parameter.enum = n.value
+          when 'pattern'
+            named_parameter.pattern = n.value
           else
-            error("Unknown key '#{n.key}'", node)
+            named_parameter.key_unknown(node, n.key)
         end
       }
+
+      named_parameter.type = named_parameter.type || 'string'
+      named_parameter.display_name = named_parameter.display_name || named_parameter.name
+      named_parameter.required = named_parameter.required != nil ? named_parameter.required : false
 
       named_parameter
     end
 
-    def create_response(node, root)
-      response = Model::Response.new
-      response.status_code = node.key
+    def parse_method(node, traits)
+      method = Model::Method.new(node.key.upcase)
 
       node.each { |n|
         case n.key
+          when 'displayName'
+            method.display_name = n.value
           when 'description'
-            response.description = n.value
+            method.description = n.value
+          when 'queryParameters'
+            n.each { |n2| method.query_parameters[n2.key] = parse_named_parameter(n2) }
+          when 'body'
+            key_not_yet_supported(node, n.key)
+          when 'responses'
+            n.each { |n2| method.responses[n2.key] = parse_response(n2) }
+          when 'is'
+            n.each { |n2| mixin_trait(method, n2, traits) }
+          when 'securedBy'
+            key_not_yet_supported(node, n.key)
+          when 'headers'
+            key_not_yet_supported(node, n.key)
           else
-            error("Unknown key '#{n.key}'", node)
+            key_unknown(node, n.key)
         end
       }
+
+      method
+    end
+
+    def parse_response(node)
+      response = Model::Response.new(node.key)
+
+      node.each do |n|
+        case n.key
+          when 'displayName'
+            response.display_name = n.value
+          when 'description'
+            response.description = n.value
+          when 'body'
+            n.each { |n2| response.bodies[n2.key] = parse_body(n2) }
+          when 'headers'
+            key_not_yet_supported(node, n.key)
+          else
+            key_unknown(node, n.key)
+        end
+      end
 
       response
     end
 
-    def mixin_trait(node, root, base_resource)
-      node.value.each { |t|
-        if t.is_a? String and root.traits[t]
-          YamlNode.new(node.root, 'traits[' + t + ']', root.traits[t]).each { |n|
-            case n.key
-              when 'displayName'
-                base_resource.display_name = n.value
-              when 'description'
-                base_resource.description = n.value
-              when 'uriParameters'
-                base_resource.uri_parameters += n.map { |n2| create_named_parameter(n2, root) }
-              when 'queryParameters'
-                base_resource.query_parameters += n.map { |n2| create_named_parameter(n2, root) }
-              when 'responses'
-                base_resource.responses += n.map { |n2| create_response(n2, root) }
-              else
-                error("Mixing in #{n.key} is supported yet", n)
-            end
-          }
-        elsif t.is_a? String and not root.traits[t]
-          error("Could not find trait #{t}", node)
-        else
-          error("Parametrized traits are not supported yet", node)
+    def parse_body(node)
+      body = Model::Body.new(node.key)
+
+      node.each do |n|
+        case n.key
+          when 'example'
+            body.example = n.value
+          when 'schema'
+            body.schema = n.value
+          else
+            key_unknown(node, n.key)
         end
-      }
+      end
+
+      body
     end
 
-    def finalize_resource(resource, root)
-      resource.display_name = resource.uri[root.base_uri.length..-1] unless resource.display_name
-      resource.uri = resource.uri.gsub(/([^:])\/{2,}/, '\1/')
+    def parse_trait(node)
+      trait = Model::Trait.new(node.key)
 
-      resource.uri_parameters += resource.uri.scan(/\{([a-zA-Z]+)\}/)
-        .map { |m| m.first }
-        .select { |up_name| not resource.uri_parameters.find { |up| up.name == up_name } }
-        .map { |up_name|
-          up = Model::NamedParameter.new
-          up.name = up_name
-          up
-        }
+      node.each do |n|
+        case n.key
+          when 'displayName'
+            trait.display_name = n.value
+          when 'description'
+            trait.description = n.value
+          when 'queryParameters'
+            n.each do |n2|
+              trait.query_parameters[n2.key] = parse_named_parameter(n2)
+            end
+          when 'headers'
+            key_not_yet_supported(node, n.key)
+          when 'responses'
+            key_not_yet_supported(node, n.key)
+          else
+            key_unknown(node, n.key)
+        end
+      end
 
-      resource.uri_parameters.each { |up| finalize_name_parameter(up, root, true) }
-      resource.query_parameters.each { |qp| finalize_name_parameter(qp, root, false) }
-
-      resource
+      trait
     end
 
-    def finalize_name_parameter(named_parameter, root, required_default)
-      named_parameter.display_name = named_parameter.name unless named_parameter.display_name
-      named_parameter.type = 'string' unless named_parameter.type
-      named_parameter.repeat = false unless named_parameter.repeat
-      named_parameter.required = required_default unless named_parameter.required
-    end
+    def mixin_trait(method, node, traits)
+      if node.value.is_a? String
+        if traits.has_key? node.value
+          trait = traits[node.value]
+          if trait.display_name != nil
+            method.display_name = trait.display_name
+          end
 
-    def error(message, node)
-      case @error_handling
-        when 'ignore'
-        when 'warning'
-          puts "Warning: '#{message}' at #{node.path}"
+          if trait.description != nil
+            method.description = trait.description
+          end
+
+          if trait.query_parameters != nil
+            trait.query_parameters.each do |name,param|
+              method.query_parameters[name] = param
+            end
+          end
         else
-          raise "Error: '#{message}' at #{node.path}"
+          semantic_error(node, "Importing unknown trait #{n2.value}")
+        end
+      else
+        not_yet_supported(node, 'Parametrized traits')
+      end
+    end
+
+    def key_not_yet_supported(node, key)
+      message = "Not yet supported key '#{key}' at node '#{node.path}"
+      case @options[:not_yet_supported]
+        when :ignore
+        when :warning
+          puts message
+        else
+          raise message
+      end
+    end
+
+    def key_unknown(node, key)
+      message = "Unknown key '#{key}' at node '#{node.path}"
+      case @options[:key_unknown]
+        when :ignore
+        when :warning
+          puts message
+        else
+          raise message
+      end
+    end
+
+    def not_yet_supported(node, msg)
+      message = "Not yet supported '#{msg}' at node '#{node.path}"
+      case @options[:not_yet_supported]
+        when :ignore
+        when :warning
+          puts message
+        else
+          raise message
+      end
+    end
+
+    def semantic_error(node, err)
+      message = "Error '#{err}' at node '#{node.path}"
+      case @options[:semantic_error]
+        when :ignore
+        when :warning
+          puts message
+        else
+          raise message
       end
     end
   end
