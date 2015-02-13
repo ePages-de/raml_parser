@@ -10,6 +10,16 @@ module RamlParser
         @traits = traits
         @resources = resources
       end
+
+      def to_hash
+        {
+            'title' => @title,
+            'base_uri' => @base_uri,
+            'version' => @version,
+            'traits' => Hash[@traits.map { |k,v| [k, v.to_hash] }],
+            'resources' => @resources.map { |r| r.to_hash }
+        }
+      end
     end
 
     class Resource
@@ -23,6 +33,17 @@ module RamlParser
         @uri_parameters = uri_parameters
         @methods = methods
       end
+
+      def to_hash
+        {
+            'absolute_uri' => @absolute_uri,
+            'relative_uri' => @relative_uri,
+            'display_name' => @display_name,
+            'description' => @description,
+            'uri_parameters' => Hash[@uri_parameters.map { |k,v| [k, v.to_hash] }],
+            'methods' => Hash[@methods.map { |k,v| [k, v.to_hash] }]
+        }
+      end
     end
 
     class Method
@@ -35,6 +56,16 @@ module RamlParser
         @query_parameters = query_parameters
         @responses = responses
       end
+
+      def to_hash
+        {
+            'method' => @method,
+            'display_name' => @display_name,
+            'description' => description,
+            'query_parameters' => Hash[@query_parameters.map { |k,v| [k, v.to_hash] }],
+            'responses' => Hash[@responses.map { |k,v| [k, v.to_hash] }]
+        }
+      end
     end
 
     class Response
@@ -46,6 +77,15 @@ module RamlParser
         @description = description
         @bodies = bodies
       end
+
+      def to_hash
+        {
+            'status_code' => @status_code,
+            'display_name' => @display_name,
+            'description' => description,
+            'bodies' => Hash[@bodies.map { |k,v| [k, v.to_hash] }]
+        }
+      end
     end
 
     class Body
@@ -55,6 +95,14 @@ module RamlParser
         @media_type = media_type
         @example = example
         @schema = schema
+      end
+
+      def to_hash
+        {
+            'media_type' => @media_type,
+            'example' => @example,
+            'schema' => @schema
+        }
       end
     end
 
@@ -77,6 +125,25 @@ module RamlParser
         @enum = enum
         @pattern = pattern
       end
+
+      def to_hash
+        {
+            'name' => @name,
+            'type' => @type,
+            'display_name' => @display_name,
+            'description' => @description,
+            'required' => @required,
+            'default' => @default,
+            'example' => @example,
+            'min_length' => @min_length,
+            'max_length' => @max_length,
+            'minimum' => @minimum,
+            'maximum' => @maximum,
+            'repeat' => @repeat,
+            'enum' => @enum,
+            'pattern' => @pattern
+        }
+      end
     end
 
     class Trait
@@ -87,6 +154,15 @@ module RamlParser
         @display_name = display_name
         @description = description
         @query_parameters = query_parameters
+      end
+
+      def to_hash
+        {
+            'name' => @name,
+            'display_name' => @display_name,
+            'description' => @description,
+            'query_parameters' => Hash[@query_parameters.map { |k,v| [k, v.to_hash] }]
+        }
       end
     end
   end
