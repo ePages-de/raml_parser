@@ -61,6 +61,17 @@ RSpec.describe RamlParser::Parser do
     expect(raml.traits.map { |_,trait| trait.name }).to eq ['searchable', 'sortable']
   end
 
+  it 'parses responses' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml = parser.parse_file('spec/examples/raml/responses.raml')
+
+    expect(raml.resources[0].methods['get'].responses.map { |code,_| code }).to eq [200, 404]
+    expect(raml.resources[0].methods['get'].responses.map { |_,res| res.status_code }).to eq [200, 404]
+
+    expect(raml.resources[0].methods['get'].responses[200].bodies.map { |type,_| type }).to eq ['application/json', 'text/xml']
+    expect(raml.resources[0].methods['get'].responses[200].bodies['application/json'].example).to_not eq nil
+  end
+
   it 'mixes in traits' do
     parser = RamlParser::Parser.new
     raml = parser.parse_file('spec/examples/raml/traits.raml')

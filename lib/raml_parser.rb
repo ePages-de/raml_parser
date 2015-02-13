@@ -181,7 +181,7 @@ module RamlParser
           when 'body'
             key_not_yet_supported(node, n.key)
           when 'responses'
-            key_not_yet_supported(node, n.key)
+            n.each { |n2| method.responses[n2.key] = parse_response(n2) }
           when 'is'
             n.each { |n2| mixin_trait(method, n2, traits) }
           when 'securedBy'
@@ -194,6 +194,44 @@ module RamlParser
       }
 
       method
+    end
+
+    def parse_response(node)
+      response = Model::Response.new(node.key)
+
+      node.each do |n|
+        case n.key
+          when 'displayName'
+            response.display_name = n.value
+          when 'description'
+            response.description = n.value
+          when 'body'
+            n.each { |n2| response.bodies[n2.key] = parse_body(n2) }
+          when 'headers'
+            key_not_yet_supported(node, n.key)
+          else
+            key_unknown(node, n.key)
+        end
+      end
+
+      response
+    end
+
+    def parse_body(node)
+      body = Model::Body.new(node.key)
+
+      node.each do |n|
+        case n.key
+          when 'example'
+            body.example = n.value
+          when 'schema'
+            body.schema = n.value
+          else
+            key_unknown(node, n.key)
+        end
+      end
+
+      body
     end
 
     def parse_trait(node)

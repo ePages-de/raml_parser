@@ -26,13 +26,35 @@ module RamlParser
     end
 
     class Method
-      attr_accessor :method, :display_name, :description, :query_parameters
+      attr_accessor :method, :display_name, :description, :query_parameters, :responses
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {})
+      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {})
         @method = method
         @display_name = display_name
         @description = description
         @query_parameters = query_parameters
+        @responses = responses
+      end
+    end
+
+    class Response
+      attr_accessor :status_code, :display_name, :description, :bodies
+
+      def initialize(status_code, display_name = nil, description = nil, bodies = {})
+        @status_code = status_code
+        @display_name = display_name
+        @description = description
+        @bodies = bodies
+      end
+    end
+
+    class Body
+      attr_accessor :media_type, :example, :schema
+
+      def initialize(media_type, example = nil, schema = nil)
+        @media_type = media_type
+        @example = example
+        @schema = schema
       end
     end
 
