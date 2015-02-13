@@ -21,6 +21,8 @@ module RamlParser
       title = nil
       base_uri = nil
       version = nil
+      traits = {}
+      resources = []
 
       node.each do |n|
         case n.key
@@ -31,7 +33,12 @@ module RamlParser
           when 'version'
             version = n.value
           when 'traits'
-            not_yet_supported(node, n.key)
+            n.each do |n2|
+              n2.each do |n3|
+                trait = parse_trait(n3)
+                traits[trait.name] = trait
+              end
+            end
           when 'resourceTypes'
             not_yet_supported(node, n.key)
           when 'documentation'
@@ -55,7 +62,7 @@ module RamlParser
         end
       end
 
-      resources = node.map do |n|
+      resources += node.map do |n|
         if n.key =~ /^\//
           parse_resource(n, base_uri || '', '', {})
         else
@@ -67,7 +74,7 @@ module RamlParser
           title,
           base_uri,
           version,
-          [],
+          traits,
           resources.flatten
       )
     end
@@ -231,6 +238,34 @@ module RamlParser
       }
 
       Model::Method.new(method, display_name, description, query_parameters)
+    end
+
+    def parse_trait(node)
+      name = node.key
+      display_name = nil
+      description = nil
+      query_parameters = {}
+
+      node.each do |n|
+        case n.key
+          when 'displayName'
+            display_name = n.value
+          when 'description'
+            description = n.value
+          when 'queryParameters'
+            n.each do |n2|
+              query_parameters[n2.key] = parse_named_parameter(n2)
+            end
+          when 'headers'
+            not_yet_supported(node, n.key)
+          when 'responses'
+            not_yet_supported(node, n.key)
+          else
+            unknown_key(node, n.key)
+        end
+      end
+
+      Model::Trait.new(name, display_name, description, query_parameters)
     end
 
     def not_yet_supported(node, key)

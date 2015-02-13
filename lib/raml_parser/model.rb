@@ -56,5 +56,16 @@ module RamlParser
         @pattern = pattern
       end
     end
+
+    class Trait
+      attr_reader :name, :display_name, :description, :query_parameters
+
+      def initialize(name, display_name, description, query_parameters)
+        @name = name
+        @display_name = display_name
+        @description = description
+        @query_parameters = query_parameters
+      end
+    end
   end
 end
