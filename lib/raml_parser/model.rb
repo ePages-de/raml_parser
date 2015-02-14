@@ -26,14 +26,15 @@ module RamlParser
     end
 
     class Method
-      attr_accessor :method, :display_name, :description, :query_parameters, :responses
+      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {})
+      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {})
         @method = method
         @display_name = display_name
         @description = description
         @query_parameters = query_parameters
         @responses = responses
+        @bodies = bodies
       end
     end
 

@@ -70,9 +70,6 @@ RSpec.describe RamlParser::Parser do
 
     expect(raml.resources[0].methods['get'].responses.map { |code,_| code }).to eq [200, 404]
     expect(raml.resources[0].methods['get'].responses.map { |_,res| res.status_code }).to eq [200, 404]
-
-    expect(raml.resources[0].methods['get'].responses[200].bodies.map { |type,_| type }).to eq ['application/json', 'text/xml']
-    expect(raml.resources[0].methods['get'].responses[200].bodies['application/json'].example).to_not eq nil
   end
 
   it 'mixes in traits' do
@@ -86,6 +83,17 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order', 'sort']
     expect(raml.resources[1].methods['get'].display_name).to eq '/a/b'
     expect(raml.resources[1].methods['get'].description).to eq 'This is resource /a/b'
+  end
+
+  it 'parses bodies' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml1 = parser.parse_file('spec/examples/raml/responses.raml')
+    expect(raml1.resources[0].methods['get'].responses[200].bodies.map { |type,_| type }).to eq ['application/json', 'text/xml']
+    expect(raml1.resources[0].methods['get'].responses[200].bodies['application/json'].example).to_not eq nil
+
+    raml2 = parser.parse_file('spec/examples/raml/requestbodies.raml')
+    expect(raml2.resources[0].methods['post'].bodies.map { |type,_| type }).to eq ['application/json', 'text/xml']
+    expect(raml2.resources[0].methods['put'].bodies['application/json'].example).to_not eq nil
   end
 
   it 'does not fail on any example RAML file' do

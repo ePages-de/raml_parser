@@ -179,7 +179,7 @@ module RamlParser
           when 'queryParameters'
             n.each { |n2| method.query_parameters[n2.key] = parse_named_parameter(n2) }
           when 'body'
-            key_not_yet_supported(node, n.key)
+            n.each { |n2| method.bodies[n2.key] = parse_body(n2) }
           when 'responses'
             n.each { |n2| method.responses[n2.key] = parse_response(n2) }
           when 'is'
@@ -226,6 +226,8 @@ module RamlParser
             body.example = n.value
           when 'schema'
             body.schema = n.value
+          when 'formParameters'
+            key_not_yet_supported(node, n.key)
           else
             key_unknown(node, n.key)
         end

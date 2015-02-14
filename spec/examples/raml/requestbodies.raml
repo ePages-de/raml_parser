@@ -1,0 +1,21 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+/first:
+  post:
+    body:
+      application/json:
+        example: |
+          {
+            "foo": "bar"
+          }
+      text/xml:
+  put:
+    body:
+      application/json:
+        example: |
+          {
+            "status": "not found",
+            "message: "Resource could not be found"
+          }
