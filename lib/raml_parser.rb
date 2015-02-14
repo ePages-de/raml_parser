@@ -253,7 +253,7 @@ module RamlParser
     end
 
     def key_not_yet_supported(node, key)
-      message = "Not yet supported key '#{key}' at node '#{node.path}"
+      message = "Not yet supported key '#{key}' at node #{node.path}"
       case @options[:not_yet_supported]
         when :ignore
         when :warning
@@ -264,7 +264,7 @@ module RamlParser
     end
 
     def key_unknown(node, key)
-      message = "Unknown key '#{key}' at node '#{node.path}"
+      message = "Unknown key '#{key}' at node #{node.path}"
       case @options[:key_unknown]
         when :ignore
         when :warning
@@ -275,7 +275,7 @@ module RamlParser
     end
 
     def not_yet_supported(node, msg)
-      message = "Not yet supported '#{msg}' at node '#{node.path}"
+      message = "Not yet supported '#{msg}' at node #{node.path}"
       case @options[:not_yet_supported]
         when :ignore
         when :warning
@@ -286,7 +286,7 @@ module RamlParser
     end
 
     def semantic_error(node, err)
-      message = "Error '#{err}' at node '#{node.path}"
+      message = "Error '#{err}' at node #{node.path}"
       case @options[:semantic_error]
         when :ignore
         when :warning
