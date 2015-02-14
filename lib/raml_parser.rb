@@ -77,12 +77,6 @@ module RamlParser
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.uri_parameters = parent_uri_parameters
 
-      if as_resource_type
-        resource.absolute_uri = nil
-        resource.relative_uri = nil
-        resource.uri_parameters = {}
-      end
-
       node.each { |n|
         case n.key
           when 'displayName'
@@ -120,8 +114,8 @@ module RamlParser
 
       unless as_resource_type
         resource = mixin_resource_types(resource, root.resource_types, node)
+        resource.display_name = resource.relative_uri unless resource.display_name
       end
-      resource.display_name = resource.relative_uri unless resource.display_name
       (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
         resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
       end
@@ -131,10 +125,6 @@ module RamlParser
 
     def parse_method(root, node, resource, as_trait)
       method = Model::Method.new(node.key.upcase)
-
-      if as_trait
-        method.method = nil
-      end
 
       node.each { |n|
         case n.key
@@ -161,8 +151,8 @@ module RamlParser
 
       unless as_trait
         method = mixin_traits(method, resource, root.traits, node)
+        method.display_name = method.method unless method.display_name
       end
-      method.display_name = method.method unless method.display_name
 
       method
     end

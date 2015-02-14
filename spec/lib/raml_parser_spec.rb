@@ -154,6 +154,14 @@ RSpec.describe RamlParser::Parser do
     expect(raml5.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].display_name).to eq 'PingPong'
   end
 
+  it 'fixed issue #2' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml = parser.parse_file('spec/examples/raml/issue2.raml')
+
+    expect(raml.resources[0].methods['get'].method).to eq 'GET'
+    expect(raml.resources[0].methods['post'].method).to eq 'POST'
+  end
+
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     parser = RamlParser::Parser.new({ :not_yet_supported => :warning })
