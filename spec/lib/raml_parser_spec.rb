@@ -61,7 +61,6 @@ RSpec.describe RamlParser::Parser do
     raml = parser.parse_file('spec/examples/raml/traits.raml')
 
     expect(raml.traits.map { |name,_| name }).to eq ['searchable', 'sortable']
-    expect(raml.traits.map { |_,trait| trait.name }).to eq ['searchable', 'sortable']
   end
 
   it 'parses responses' do
@@ -83,6 +82,9 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order', 'sort']
     expect(raml.resources[1].methods['get'].display_name).to eq '/a/b'
     expect(raml.resources[1].methods['get'].description).to eq 'This is resource /a/b'
+
+    expect(raml.resources[2].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order']
+    expect(raml.resources[3].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order', 'q']
   end
 
   it 'parses bodies' do

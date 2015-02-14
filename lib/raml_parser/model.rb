@@ -13,28 +13,43 @@ module RamlParser
     end
 
     class Resource
-      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods
+      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :is
 
-      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {})
+      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, is = [])
         @absolute_uri = absolute_uri
         @relative_uri = relative_uri
         @display_name = display_name
         @description = description
         @uri_parameters = uri_parameters
         @methods = methods
+        @is = is
       end
     end
 
     class Method
-      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies
+      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :is
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {})
+      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, is = [])
         @method = method
         @display_name = display_name
         @description = description
         @query_parameters = query_parameters
         @responses = responses
         @bodies = bodies
+        @is = is
+      end
+
+      def self.merge(a, b)
+        method = Method.new(b.method)
+
+        method.display_name = if b.display_name then b.display_name else a.display_name end
+        method.description = if b.description then b.description else a.description end
+        method.query_parameters = a.query_parameters.merge(b.query_parameters)
+        method.responses = a.responses.merge(b.responses)
+        method.bodies = a.bodies.merge(b.bodies)
+        method.is = (a.is + b.is).uniq
+
+        method
       end
     end
 
@@ -77,17 +92,6 @@ module RamlParser
         @repeat = repeat
         @enum = enum
         @pattern = pattern
-      end
-    end
-
-    class Trait
-      attr_accessor :name, :display_name, :description, :query_parameters
-
-      def initialize(name, display_name = nil, description = nil, query_parameters = {})
-        @name = name
-        @display_name = display_name
-        @description = description
-        @query_parameters = query_parameters
       end
     end
   end
