@@ -31,7 +31,7 @@ module RamlParser
           when 'traits'
             n.each { |n2| n2.each { |n3| root.traits[n3.key] = parse_method(root, n3, nil, true) } }
           when 'resourceTypes'
-            key_not_yet_supported(node, n.key)
+            n.each { |n2| n2.each { |n3| root.resource_types[n3.key] = parse_resource(root, n3, true) } }
           when 'documentation'
             key_not_yet_supported(node, n.key)
           when 'securitySchemes'
@@ -54,13 +54,22 @@ module RamlParser
       end
 
       resource_nodes = find_resource_nodes(node)
-      resource_nodes.each { |n| n.data = parse_resource(root, n) }
+      resource_nodes.each { |n| n.data = parse_resource(root, n, false) }
+      resource_nodes.each { |n|
+        if n.data.uri_parameters.keys.include? 'mediaTypeExtension'
+          not_yet_supported(node, "URI parameter named mediaTypeExtension")
+        end
+
+        if (n.data.uri_parameters.keys - n.data.relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }).length > 0
+          semantic_error(n, "Found URI parameter definition for non existent key")
+        end
+      }
       root.resources = resource_nodes.map { |n| n.data }
 
       root
     end
 
-    def parse_resource(root, node)
+    def parse_resource(root, node, as_resource_type)
       parent_absolute_uri = if node.parent.data != nil then node.parent.data.absolute_uri else root.base_uri || '' end
       parent_relative_uri = if node.parent.data != nil then node.parent.data.relative_uri else '' end
       parent_uri_parameters = if node.parent.data != nil then node.parent.data.uri_parameters.clone else {} end
@@ -68,9 +77,10 @@ module RamlParser
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.uri_parameters = parent_uri_parameters
 
-      new_uri_parameters = node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
-      new_uri_parameters.each do |name|
-        resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
+      if as_resource_type
+        resource.absolute_uri = nil
+        resource.relative_uri = nil
+        resource.uri_parameters = {}
       end
 
       node.each { |n|
@@ -80,21 +90,27 @@ module RamlParser
           when 'description'
             resource.description = n.value
           when 'uriParameters'
-            n.each do |n2|
-              if new_uri_parameters.include? n2.key
-                resource.uri_parameters[n2.key] = parse_named_parameter(root, n2)
-              else
-                semantic_error(n, "Found URI parameter definition for non existent key '#{n2.key}'")
-              end
-            end
+            n.each { |n2| resource.uri_parameters[n2.key] = parse_named_parameter(root, n2) }
           when 'is'
             resource.is += n.value
           when 'type'
-            key_not_yet_supported(node, n.key)
+            if n.value.is_a? String
+              resource.type = { n.value => nil }
+            else
+              resource.type = n.value
+            end
           when 'securedBy'
             key_not_yet_supported(node, n.key)
-          when /^(get|post|put|delete|head|patch|options|trace|connect)$/
-            resource.methods[n.key] = parse_method(root, n, resource, false)
+          when 'usage'
+            unless as_resource_type
+              key_unknown(node, n.key)
+            end
+          when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
+            if not n.key.end_with? '?' or as_resource_type
+              resource.methods[n.key] = parse_method(root, n, resource, as_resource_type)
+            else
+              key_unknown(node, n.key)
+            end
           when /^\//
             # gets handled separately
           else
@@ -102,13 +118,23 @@ module RamlParser
         end
       }
 
+      unless as_resource_type
+        resource = mixin_resource_types(resource, root.resource_types, node)
+      end
       resource.display_name = resource.relative_uri unless resource.display_name
+      (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
+        resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
+      end
 
       resource
     end
 
     def parse_method(root, node, resource, as_trait)
-      method = Model::Method.new(if not as_trait then node.key.upcase else nil end)
+      method = Model::Method.new(node.key.upcase)
+
+      if as_trait
+        method.method = nil
+      end
 
       node.each { |n|
         case n.key
@@ -133,7 +159,9 @@ module RamlParser
         end
       }
 
-      method = mixin_traits(method, resource, root.traits, node) unless as_trait
+      unless as_trait
+        method = mixin_traits(method, resource, root.traits, node)
+      end
       method.display_name = method.method unless method.display_name
 
       method
@@ -223,19 +251,39 @@ module RamlParser
     end
 
     def mixin_traits(method, resource, traits, node)
-      Model::Method.merge((resource.is + method.is).inject(Model::Method.new(nil)) { |m,t|
-        if t.is_a? String
-          if traits.has_key? t
-            Model::Method.merge(m, traits[t])
+      result = Model::Method.new(nil)
+      (resource.is + method.is).each do |name|
+        if name.is_a? String
+          if traits.has_key? name
+            result = Model::Method.merge(result, traits[name])
           else
-            semantic_error(node, "Importing unknown trait #{t}")
-            m
+            semantic_error(node, "Importing unknown trait #{name}")
           end
         else
-          not_yet_supported(node, 'Parametrized traits')
-          m
+          not_yet_supported(node, 'Parametrized resource types')
         end
-      }, method)
+      end
+
+      result = Model::Method.merge(result, method)
+      result
+    end
+
+    def mixin_resource_types(resource, resource_types, node)
+      result = Model::Resource.new(nil, nil)
+      resource.type.each do |name,value|
+        if value == nil
+          if resource_types.has_key? name
+            result = Model::Resource.merge(result, resource_types[name])
+          else
+            semantic_error(node, "Importing unknown resource type #{name}")
+          end
+        else
+          not_yet_supported(node, 'Parametrized resource types')
+        end
+      end
+
+      result = Model::Resource.merge(result, resource)
+      result
     end
 
     def find_resource_nodes(node)
@@ -243,12 +291,8 @@ module RamlParser
 
       node.each do |n|
         if n.key =~ /^\//
-          unless n.key.scan(/\{([a-zA-Z\_]+)\}/).map { |m| m.first }.include? 'mediaTypeExtension'
-            nodes << n
-            nodes += find_resource_nodes(n)
-          else
-            not_yet_supported(node, "URI parameter named mediaTypeExtension")
-          end
+          nodes << n
+          nodes += find_resource_nodes(n)
         end
       end
 
@@ -256,7 +300,7 @@ module RamlParser
     end
 
     def key_not_yet_supported(node, key)
-      message = "Not yet supported key '#{key}' at node '#{node.path}"
+      message = "Not yet supported key '#{key}' at node #{node.path}"
       case @options[:not_yet_supported]
         when :ignore
         when :warning
@@ -267,7 +311,7 @@ module RamlParser
     end
 
     def key_unknown(node, key)
-      message = "Unknown key '#{key}' at node '#{node.path}"
+      message = "Unknown key '#{key}' at node #{node.path}"
       case @options[:key_unknown]
         when :ignore
         when :warning
@@ -278,7 +322,7 @@ module RamlParser
     end
 
     def not_yet_supported(node, msg)
-      message = "Not yet supported '#{msg}' at node '#{node.path}"
+      message = "Not yet supported '#{msg}' at node #{node.path}"
       case @options[:not_yet_supported]
         when :ignore
         when :warning
@@ -289,7 +333,7 @@ module RamlParser
     end
 
     def semantic_error(node, err)
-      message = "Error '#{err}' at node '#{node.path}"
+      message = "Error '#{err}' at node #{node.path}"
       case @options[:semantic_error]
         when :ignore
         when :warning

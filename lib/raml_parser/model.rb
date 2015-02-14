@@ -1,28 +1,43 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :traits, :resources
+      attr_accessor :title, :base_uri, :version, :traits, :resource_types, :resources
 
-      def initialize(title = nil, base_uri = nil, version = nil, traits = {}, resources = [])
+      def initialize(title = nil, base_uri = nil, version = nil, traits = {}, resource_types = {}, resources = [])
         @title = title
         @base_uri = base_uri
         @version = version
         @traits = traits
+        @resource_types = resource_types
         @resources = resources
       end
     end
 
     class Resource
-      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :is
+      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :type, :is
 
-      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, is = [])
+      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, type = {}, is = [])
         @absolute_uri = absolute_uri
         @relative_uri = relative_uri
         @display_name = display_name
         @description = description
         @uri_parameters = uri_parameters
         @methods = methods
+        @type = type
         @is = is
+      end
+
+      def self.merge(a, b)
+        resource = Resource.new(b.absolute_uri, b.relative_uri)
+
+        resource.display_name = if b.display_name then b.display_name else a.display_name end
+        resource.description = if b.description then b.description else a.description end
+        resource.uri_parameters = a.uri_parameters.merge(b.uri_parameters)
+        resource.methods = a.methods.merge(b.methods)
+        resource.type = a.type.merge(b.type)
+        resource.is = (a.is + b.is).uniq
+
+        resource
       end
     end
 

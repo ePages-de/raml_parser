@@ -63,6 +63,13 @@ RSpec.describe RamlParser::Parser do
     expect(raml.traits.map { |name,_| name }).to eq ['searchable', 'sortable']
   end
 
+  it 'parses resource types' do
+    parser = RamlParser::Parser.new
+    raml = parser.parse_file('spec/examples/raml/resourcetypes.raml')
+
+    expect(raml.resource_types.map { |name,_| name }).to eq ['collection']
+  end
+
   it 'parses responses' do
     parser = RamlParser::Parser.new(all_errors)
     raml = parser.parse_file('spec/examples/raml/responses.raml')
@@ -85,6 +92,16 @@ RSpec.describe RamlParser::Parser do
 
     expect(raml.resources[2].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order']
     expect(raml.resources[3].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order', 'q']
+  end
+
+  it 'mixes in resource types' do
+    parser = RamlParser::Parser.new
+    raml = parser.parse_file('spec/examples/raml/resourcetypes.raml')
+
+    expect(raml.resources[0].methods.keys).to eq ['get', 'post', 'put']
+    expect(raml.resources[0].methods['get'].description).to eq 'Get all items'
+    expect(raml.resources[0].methods['post'].description).to eq 'Overriden'
+    expect(raml.resources[0].methods['put'].description).to eq nil
   end
 
   it 'parses bodies' do

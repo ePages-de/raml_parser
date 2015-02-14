@@ -26,7 +26,7 @@ TODO: Write usage instructions here
 These are features of the RAML 0.8 specification that are not fully handled yet. This list should be complete, i.e. everything not listed here should work.
 
 * [Parametrized traits](http://raml.org/spec.html#resource-types-and-traits)
-* [Resource types](http://raml.org/spec.html#resource-types-and-traits)
+* [Parametrized resource types](http://raml.org/spec.html#resource-types-and-traits)
 * [Security](http://raml.org/spec.html#security)
 * [Schemas](http://raml.org/spec.html#schemas)
 * [Protocols](http://raml.org/spec.html#protocols)
