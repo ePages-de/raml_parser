@@ -32,6 +32,7 @@ These are features of the RAML 0.8 specification that are not fully handled yet.
 * [Protocols](http://raml.org/spec.html#protocols)
 * [Default Media Type](http://raml.org/spec.html#default-media-type)
 * [Media type extension URI parameters](http://raml.org/spec.html#template-uris-and-uri-parameters)
+* [Form parameters](http://raml.org/spec.html#named-parameters)
 
 ## Contributing
 
