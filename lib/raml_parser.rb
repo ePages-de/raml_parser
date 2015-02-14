@@ -55,6 +55,15 @@ module RamlParser
 
       resource_nodes = find_resource_nodes(node)
       resource_nodes.each { |n| n.data = parse_resource(root, n) }
+      resource_nodes.each { |n|
+        if n.data.uri_parameters.keys.include? 'mediaTypeExtension'
+          not_yet_supported(node, "URI parameter named mediaTypeExtension")
+        end
+
+        if (n.data.uri_parameters.keys - n.data.relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }).length > 0
+          semantic_error(n, "Found URI parameter definition for non existent key")
+        end
+      }
       root.resources = resource_nodes.map { |n| n.data }
 
       root
@@ -68,11 +77,6 @@ module RamlParser
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.uri_parameters = parent_uri_parameters
 
-      new_uri_parameters = node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
-      new_uri_parameters.each do |name|
-        resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
-      end
-
       node.each { |n|
         case n.key
           when 'displayName'
@@ -80,13 +84,7 @@ module RamlParser
           when 'description'
             resource.description = n.value
           when 'uriParameters'
-            n.each do |n2|
-              if new_uri_parameters.include? n2.key
-                resource.uri_parameters[n2.key] = parse_named_parameter(root, n2)
-              else
-                semantic_error(n, "Found URI parameter definition for non existent key '#{n2.key}'")
-              end
-            end
+            n.each { |n2| resource.uri_parameters[n2.key] = parse_named_parameter(root, n2) }
           when 'is'
             resource.is += n.value
           when 'type'
@@ -103,6 +101,9 @@ module RamlParser
       }
 
       resource.display_name = resource.relative_uri unless resource.display_name
+      (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
+        resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
+      end
 
       resource
     end
@@ -243,12 +244,8 @@ module RamlParser
 
       node.each do |n|
         if n.key =~ /^\//
-          unless n.key.scan(/\{([a-zA-Z\_]+)\}/).map { |m| m.first }.include? 'mediaTypeExtension'
-            nodes << n
-            nodes += find_resource_nodes(n)
-          else
-            not_yet_supported(node, "URI parameter named mediaTypeExtension")
-          end
+          nodes << n
+          nodes += find_resource_nodes(n)
         end
       end
 
