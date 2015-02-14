@@ -94,7 +94,11 @@ module RamlParser
           when 'is'
             resource.is += n.value
           when 'type'
-            key_not_yet_supported(node, n.key)
+            if n.value.is_a? String
+              resource.type = { n.value => nil }
+            else
+              resource.type = n.value
+            end
           when 'securedBy'
             key_not_yet_supported(node, n.key)
           when 'usage'
@@ -102,10 +106,10 @@ module RamlParser
               key_unknown(node, n.key)
             end
           when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
-            if not as_resource_type and not n.key.end_with? '?'
-              resource.methods[n.key] = parse_method(root, n, resource, false)
+            if not n.key.end_with? '?' or as_resource_type
+              resource.methods[n.key] = parse_method(root, n, resource, as_resource_type)
             else
-              not_yet_supported(node, 'Optional methods')
+              key_unknown(node, n.key)
             end
           when /^\//
             # gets handled separately
@@ -114,6 +118,9 @@ module RamlParser
         end
       }
 
+      unless as_resource_type
+        resource = mixin_resource_types(resource, root.resource_types, node)
+      end
       resource.display_name = resource.relative_uri unless resource.display_name
       (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
         resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
@@ -152,7 +159,9 @@ module RamlParser
         end
       }
 
-      method = mixin_traits(method, resource, root.traits, node) unless as_trait
+      unless as_trait
+        method = mixin_traits(method, resource, root.traits, node)
+      end
       method.display_name = method.method unless method.display_name
 
       method
@@ -242,19 +251,39 @@ module RamlParser
     end
 
     def mixin_traits(method, resource, traits, node)
-      Model::Method.merge((resource.is + method.is).inject(Model::Method.new(nil)) { |m,t|
-        if t.is_a? String
-          if traits.has_key? t
-            Model::Method.merge(m, traits[t])
+      result = Model::Method.new(nil)
+      (resource.is + method.is).each do |name|
+        if name.is_a? String
+          if traits.has_key? name
+            result = Model::Method.merge(result, traits[name])
           else
-            semantic_error(node, "Importing unknown trait #{t}")
-            m
+            semantic_error(node, "Importing unknown trait #{name}")
           end
         else
-          not_yet_supported(node, 'Parametrized traits')
-          m
+          not_yet_supported(node, 'Parametrized resource types')
         end
-      }, method)
+      end
+
+      result = Model::Method.merge(result, method)
+      result
+    end
+
+    def mixin_resource_types(resource, resource_types, node)
+      result = Model::Resource.new(nil, nil)
+      resource.type.each do |name,value|
+        if value == nil
+          if resource_types.has_key? name
+            result = Model::Resource.merge(result, resource_types[name])
+          else
+            semantic_error(node, "Importing unknown resource type #{name}")
+          end
+        else
+          not_yet_supported(node, 'Parametrized resource types')
+        end
+      end
+
+      result = Model::Resource.merge(result, resource)
+      result
     end
 
     def find_resource_nodes(node)
