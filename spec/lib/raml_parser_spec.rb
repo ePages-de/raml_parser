@@ -93,8 +93,7 @@ RSpec.describe RamlParser::Parser do
     parser = RamlParser::Parser.new({ :not_yet_supported => :ignore })
 
     files.each { |f|
-      raml = parser.parse_file(f)
-      raml.to_hash
+      parser.parse_file(f)
     }
   end
 end
