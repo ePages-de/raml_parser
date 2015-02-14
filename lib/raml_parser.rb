@@ -238,6 +238,7 @@ module RamlParser
 
     def parse_body(root, node)
       body = Model::Body.new(node.key)
+      needs_form_parameters = ['application/x-www-form-urlencoded', 'multipart/form-data'].include? body.media_type
 
       node.each do |n|
         case n.key
@@ -246,10 +247,18 @@ module RamlParser
           when 'schema'
             body.schema = n.value
           when 'formParameters'
-            key_not_yet_supported(node, n.key)
+            if needs_form_parameters
+              n.each { |n2| body.form_parameters[n2.key] = parse_named_parameter(root, n2) }
+            else
+              semantic_error(node, 'Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data')
+            end
           else
             key_unknown(node, n.key)
         end
+      end
+
+      if needs_form_parameters and body.form_parameters.empty?
+        semantic_error(node, 'Requests with media type application/x-www-form-urlencoded or multipart/form-data must supply form parameters')
       end
 
       body
