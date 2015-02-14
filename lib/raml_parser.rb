@@ -127,7 +127,7 @@ module RamlParser
           when 'securedBy'
             key_not_yet_supported(node, n.key)
           when 'headers'
-            key_not_yet_supported(node, n.key)
+            n.each { |n2| method.headers[n2.key] = parse_named_parameter(root, n2) }
           else
             key_unknown(node, n.key)
         end
@@ -151,7 +151,7 @@ module RamlParser
           when 'body'
             n.each { |n2| response.bodies[n2.key] = parse_body(root, n2) }
           when 'headers'
-            key_not_yet_supported(node, n.key)
+            n.each { |n2| response.headers[n2.key] = parse_named_parameter(root, n2) }
           else
             key_unknown(node, n.key)
         end
