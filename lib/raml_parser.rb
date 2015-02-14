@@ -121,6 +121,8 @@ module RamlParser
         end
       end
 
+      resource.display_name = resource.relative_uri unless resource.display_name
+
       [resource] + child_resources
     end
 
@@ -160,9 +162,9 @@ module RamlParser
         end
       }
 
-      named_parameter.type = named_parameter.type || 'string'
-      named_parameter.display_name = named_parameter.display_name || named_parameter.name
-      named_parameter.required = named_parameter.required != nil ? named_parameter.required : false
+      named_parameter.type = 'string' unless named_parameter.type != nil
+      named_parameter.display_name = named_parameter.name unless named_parameter.display_name != nil
+      named_parameter.required = false unless named_parameter.required != nil
 
       named_parameter
     end
@@ -192,6 +194,8 @@ module RamlParser
             key_unknown(node, n.key)
         end
       }
+
+      method.display_name = method.method unless method.display_name
 
       method
     end

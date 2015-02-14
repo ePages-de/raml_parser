@@ -96,6 +96,25 @@ RSpec.describe RamlParser::Parser do
     expect(raml2.resources[0].methods['put'].bodies['application/json'].example).to_not eq nil
   end
 
+  it 'falls back to default display name' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml1 = parser.parse_file('spec/examples/raml/resources.raml')
+    expect(raml1.resources[1].display_name).to eq '/first/second'
+    expect(raml1.resources[2].display_name).to eq 'This is the third'
+
+    raml2 = parser.parse_file('spec/examples/raml/resources.raml')
+    expect(raml2.resources[5].uri_parameters['uri'].display_name).to eq 'uri'
+    expect(raml2.resources[5].uri_parameters['params'].display_name).to eq 'This are the params'
+
+    raml3 = parser.parse_file('spec/examples/raml/queryparameters.raml')
+    expect(raml3.resources[0].methods['get'].query_parameters['q1'].display_name).to eq 'q1'
+    expect(raml3.resources[1].methods['get'].query_parameters['q2'].display_name).to eq 'This is the second query parameter'
+
+    raml4 = parser.parse_file('spec/examples/raml/methods.raml')
+    expect(raml4.resources[0].methods['get'].display_name).to eq 'GET'
+    expect(raml4.resources[1].methods['get'].display_name).to eq 'This is /a/b'
+  end
+
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     parser = RamlParser::Parser.new({ :not_yet_supported => :ignore })
