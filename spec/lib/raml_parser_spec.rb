@@ -122,6 +122,15 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].description).to eq 'Pong'
   end
 
+  it 'parses form parameters' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml = parser.parse_file('spec/examples/raml/formparameters.raml')
+    expect(raml.resources[0].methods['post'].bodies['application/x-www-form-urlencoded'].form_parameters['from'].description).to eq 'FROM1'
+    expect(raml.resources[0].methods['post'].bodies['application/x-www-form-urlencoded'].form_parameters['to'].description).to eq 'TO1'
+    expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['from'].description).to eq 'FROM2'
+    expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['to'].description).to eq 'TO2'
+  end
+
   it 'falls back to default display name' do
     parser = RamlParser::Parser.new(all_errors)
     raml1 = parser.parse_file('spec/examples/raml/resources.raml')
