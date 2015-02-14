@@ -191,6 +191,11 @@ module RamlParser
     def parse_named_parameter(root, node)
       named_parameter = Model::NamedParameter.new(node.key)
 
+      if node.value.is_a? Array
+        not_yet_supported(node, 'Named parameters with multiple types')
+        return named_parameter
+      end
+
       node.each { |n|
         case n.key
           when 'type'
