@@ -98,6 +98,13 @@ RSpec.describe RamlParser::Parser do
     expect(raml2.resources[0].methods['put'].bodies['application/json'].example).to_not eq nil
   end
 
+  it 'parses headers' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml = parser.parse_file('spec/examples/raml/headers.raml')
+    expect(raml.resources[0].methods['get'].headers['X-Foobar-Ping'].description).to eq 'Ping'
+    expect(raml.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].description).to eq 'Pong'
+  end
+
   it 'falls back to default display name' do
     parser = RamlParser::Parser.new(all_errors)
     raml1 = parser.parse_file('spec/examples/raml/resources.raml')
@@ -115,11 +122,15 @@ RSpec.describe RamlParser::Parser do
     raml4 = parser.parse_file('spec/examples/raml/methods.raml')
     expect(raml4.resources[0].methods['get'].display_name).to eq 'GET'
     expect(raml4.resources[1].methods['get'].display_name).to eq 'This is /a/b'
+
+    raml5 = parser.parse_file('spec/examples/raml/headers.raml')
+    expect(raml5.resources[0].methods['get'].headers['X-Foobar-Ping'].display_name).to eq 'X-Foobar-Ping'
+    expect(raml5.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].display_name).to eq 'PingPong'
   end
 
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
-    parser = RamlParser::Parser.new({ :not_yet_supported => :ignore })
+    parser = RamlParser::Parser.new({ :not_yet_supported => :warning })
 
     files.each { |f|
       parser.parse_file(f)

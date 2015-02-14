@@ -29,7 +29,6 @@ These are features of the RAML 0.8 specification that are not fully handled yet.
 * [Resource types](http://raml.org/spec.html#resource-types-and-traits)
 * [Security](http://raml.org/spec.html#security)
 * [Schemas](http://raml.org/spec.html#schemas)
-* [Headers](http://raml.org/spec.html#headers)
 * [Protocols](http://raml.org/spec.html#protocols)
 * [Default Media Type](http://raml.org/spec.html#default-media-type)
 * [Media type extension URI parameters](http://raml.org/spec.html#template-uris-and-uri-parameters)

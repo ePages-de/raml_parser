@@ -27,15 +27,16 @@ module RamlParser
     end
 
     class Method
-      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :is
+      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :headers, :is
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, is = [])
+      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = [])
         @method = method
         @display_name = display_name
         @description = description
         @query_parameters = query_parameters
         @responses = responses
         @bodies = bodies
+        @headers = headers
         @is = is
       end
 
@@ -47,6 +48,7 @@ module RamlParser
         method.query_parameters = a.query_parameters.merge(b.query_parameters)
         method.responses = a.responses.merge(b.responses)
         method.bodies = a.bodies.merge(b.bodies)
+        method.headers = a.headers.merge(b.headers)
         method.is = (a.is + b.is).uniq
 
         method
@@ -54,13 +56,14 @@ module RamlParser
     end
 
     class Response
-      attr_accessor :status_code, :display_name, :description, :bodies
+      attr_accessor :status_code, :display_name, :description, :bodies, :headers
 
-      def initialize(status_code, display_name = nil, description = nil, bodies = {})
+      def initialize(status_code, display_name = nil, description = nil, bodies = {}, headers = {})
         @status_code = status_code
         @display_name = display_name
         @description = description
         @bodies = bodies
+        @headers = headers
       end
     end
 
