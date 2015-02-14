@@ -31,7 +31,7 @@ module RamlParser
           when 'traits'
             n.each { |n2| n2.each { |n3| root.traits[n3.key] = parse_method(root, n3, nil, true) } }
           when 'resourceTypes'
-            key_not_yet_supported(node, n.key)
+            n.each { |n2| n2.each { |n3| root.resource_types[n3.key] = parse_resource(root, n3, true) } }
           when 'documentation'
             key_not_yet_supported(node, n.key)
           when 'securitySchemes'
@@ -54,7 +54,7 @@ module RamlParser
       end
 
       resource_nodes = find_resource_nodes(node)
-      resource_nodes.each { |n| n.data = parse_resource(root, n) }
+      resource_nodes.each { |n| n.data = parse_resource(root, n, false) }
       resource_nodes.each { |n|
         if n.data.uri_parameters.keys.include? 'mediaTypeExtension'
           not_yet_supported(node, "URI parameter named mediaTypeExtension")
@@ -69,13 +69,19 @@ module RamlParser
       root
     end
 
-    def parse_resource(root, node)
+    def parse_resource(root, node, as_resource_type)
       parent_absolute_uri = if node.parent.data != nil then node.parent.data.absolute_uri else root.base_uri || '' end
       parent_relative_uri = if node.parent.data != nil then node.parent.data.relative_uri else '' end
       parent_uri_parameters = if node.parent.data != nil then node.parent.data.uri_parameters.clone else {} end
 
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.uri_parameters = parent_uri_parameters
+
+      if as_resource_type
+        resource.absolute_uri = nil
+        resource.relative_uri = nil
+        resource.uri_parameters = {}
+      end
 
       node.each { |n|
         case n.key
@@ -91,8 +97,16 @@ module RamlParser
             key_not_yet_supported(node, n.key)
           when 'securedBy'
             key_not_yet_supported(node, n.key)
-          when /^(get|post|put|delete|head|patch|options|trace|connect)$/
-            resource.methods[n.key] = parse_method(root, n, resource, false)
+          when 'usage'
+            unless as_resource_type
+              key_unknown(node, n.key)
+            end
+          when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
+            if not as_resource_type and not n.key.end_with? '?'
+              resource.methods[n.key] = parse_method(root, n, resource, false)
+            else
+              not_yet_supported(node, 'Optional methods')
+            end
           when /^\//
             # gets handled separately
           else
@@ -109,7 +123,11 @@ module RamlParser
     end
 
     def parse_method(root, node, resource, as_trait)
-      method = Model::Method.new(if not as_trait then node.key.upcase else nil end)
+      method = Model::Method.new(node.key.upcase)
+
+      if as_trait
+        method.method = nil
+      end
 
       node.each { |n|
         case n.key

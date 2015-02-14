@@ -63,6 +63,13 @@ RSpec.describe RamlParser::Parser do
     expect(raml.traits.map { |name,_| name }).to eq ['searchable', 'sortable']
   end
 
+  it 'parses resource types' do
+    parser = RamlParser::Parser.new
+    raml = parser.parse_file('spec/examples/raml/resourcetypes.raml')
+
+    expect(raml.resource_types.map { |name,_| name }).to eq ['collection']
+  end
+
   it 'parses responses' do
     parser = RamlParser::Parser.new(all_errors)
     raml = parser.parse_file('spec/examples/raml/responses.raml')
