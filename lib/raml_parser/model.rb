@@ -83,12 +83,13 @@ module RamlParser
     end
 
     class Body
-      attr_accessor :media_type, :example, :schema
+      attr_accessor :media_type, :example, :schema, :form_parameters
 
-      def initialize(media_type, example = nil, schema = nil)
+      def initialize(media_type, example = nil, schema = nil, form_parameters = {})
         @media_type = media_type
         @example = example
         @schema = schema
+        @form_parameters = form_parameters
       end
     end
 
