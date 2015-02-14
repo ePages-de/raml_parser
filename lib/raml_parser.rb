@@ -220,7 +220,7 @@ module RamlParser
           when 'pattern'
             named_parameter.pattern = n.value
           else
-            named_parameter.key_unknown(node, n.key)
+            key_unknown(node, n.key)
         end
       }
 
