@@ -67,10 +67,6 @@ module RamlParser
         resource = parse_resource(n, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, false)
         n.data = resource
 
-        if resource.uri_parameters.keys.include? 'mediaTypeExtension'
-          not_yet_supported(node, "URI parameter named mediaTypeExtension")
-        end
-
         if (resource.uri_parameters.keys - resource.relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }).length > 0
           error(:semantic_error, n, "Found URI parameter definition for non existent key")
         end
@@ -102,8 +98,6 @@ module RamlParser
           when 'usage'
             unless as_resource_type
               error(:key_unknown, node, n.key)
-            else
-              not_yet_supported(node, n.key)
             end
           when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
             if not n.key.end_with? '?' or as_resource_type
