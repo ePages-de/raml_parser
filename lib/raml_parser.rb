@@ -29,9 +29,9 @@ module RamlParser
           when 'version'
             root.version = n.value
           when 'traits'
-            n.each { |n2| n2.each { |n3| root.traits[n3.key] = parse_method(root, n3, nil, true) } }
+            n.each { |n2| n2.each { |n3| root.traits[n3.key] = n3 } }
           when 'resourceTypes'
-            n.each { |n2| n2.each { |n3| root.resource_types[n3.key] = parse_resource(root, n3, true) } }
+            n.each { |n2| n2.each { |n3| root.resource_types[n3.key] = n3 } }
           when 'documentation'
             key_not_yet_supported(node, n.key)
           when 'securitySchemes'
@@ -86,12 +86,22 @@ module RamlParser
           when 'uriParameters'
             n.each { |n2| resource.uri_parameters[n2.key] = parse_named_parameter(root, n2) }
           when 'is'
-            resource.is += n.value
+            n.value.each { |n2|
+              if n2.is_a? String
+                resource.is = resource.is.merge({ n2 => nil })
+              elsif n2.is_a? Hash
+                resource.is = resource.is.merge(n2)
+              else
+                semantic_error(node, 'Invalid is format')
+              end
+            }
           when 'type'
             if n.value.is_a? String
               resource.type = { n.value => nil }
-            else
+            elsif n.value.is_a? Hash
               resource.type = n.value
+            else
+              semantic_error(node, 'Invalid type format')
             end
           when 'securedBy'
             key_not_yet_supported(node, n.key)
@@ -113,7 +123,7 @@ module RamlParser
       }
 
       unless as_resource_type
-        resource = mixin_resource_types(resource, root.resource_types, node)
+        resource = mixin_resource_types(resource, root.resource_types, node, root)
         resource.display_name = resource.relative_uri unless resource.display_name
       end
       (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
@@ -139,7 +149,15 @@ module RamlParser
           when 'responses'
             n.each { |n2| method.responses[n2.key] = parse_response(root, n2) }
           when 'is'
-            method.is += n.value
+            n.value.each { |n2|
+              if n2.is_a? String
+                method.is = method.is.merge({ n2 => nil })
+              elsif n2.is_a? Hash
+                method.is = method.is.merge(n2)
+              else
+                semantic_error(node, 'Invalid is format')
+              end
+            }
           when 'securedBy'
             key_not_yet_supported(node, n.key)
           when 'headers'
@@ -150,7 +168,7 @@ module RamlParser
       }
 
       unless as_trait
-        method = mixin_traits(method, resource, root.traits, node)
+        method = mixin_traits(method, resource, root.traits, node, root)
         method.display_name = method.method unless method.display_name
       end
 
@@ -254,40 +272,70 @@ module RamlParser
       body
     end
 
-    def mixin_traits(method, resource, traits, node)
+    def mixin_traits(method, resource, traits, node, root)
       result = Model::Method.new(nil)
-      (resource.is + method.is).each do |name|
-        if name.is_a? String
-          if traits.has_key? name
-            result = Model::Method.merge(result, traits[name])
-          else
-            semantic_error(node, "Importing unknown trait #{name}")
-          end
+      (resource.is.merge(method.is)).each do |name,value|
+        params = (value || {}).merge({
+            'resourcePath' => resource.relative_uri,
+            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
+            'methodName' => method.method.downcase
+        })
+        if traits.has_key? name
+          unresolved = traits[name]
+          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
+          result = Model::Method.merge(result, parse_method(root, resolved, nil, true))
         else
-          not_yet_supported(node, 'Parametrized resource types')
+          semantic_error(node, "Importing unknown trait #{name}")
         end
       end
 
-      result = Model::Method.merge(result, method)
-      result
+      Model::Method.merge(result, method)
     end
 
-    def mixin_resource_types(resource, resource_types, node)
+    def mixin_resource_types(resource, resource_types, node, root)
       result = Model::Resource.new(nil, nil)
       resource.type.each do |name,value|
-        if value == nil
-          if resource_types.has_key? name
-            result = Model::Resource.merge(result, resource_types[name])
-          else
-            semantic_error(node, "Importing unknown resource type #{name}")
-          end
+        params = (value || {}).merge({
+            'resourcePath' => resource.relative_uri,
+            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
+        })
+        if resource_types.has_key? name
+          unresolved = resource_types[name]
+          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
+          result = Model::Resource.merge(result, parse_resource(root, resolved, true))
         else
-          not_yet_supported(node, 'Parametrized resource types')
+          semantic_error(node, "Importing unknown resource type #{name}")
         end
       end
 
-      result = Model::Resource.merge(result, resource)
-      result
+      Model::Resource.merge(result, resource)
+    end
+
+    def resolve_parameters(raw, params, original_node)
+      def alter_string(str, params, original_node)
+        str.gsub(/<<([a-zA-Z]+)(\s*\|\s*!([a-zA-Z_\-]+))?>>/) do |a,b|
+          case $3
+            when nil
+              params[$1]
+            when 'singularize'
+              not_yet_supported(original_node, 'Singularization of parameters')
+            when 'pluralize'
+              not_yet_supported(original_node, 'Pluralization of parameters')
+            else
+              semantic_error(original_node, "Unknown parameter pipe function '#{$3}'")
+          end
+        end
+      end
+
+      if raw.is_a? Hash
+        Hash[raw.map { |k,v| [resolve_parameters(k, params, original_node), resolve_parameters(v, params, original_node)] }]
+      elsif raw.is_a? Array
+        raw.map { |i| resolve_parameters(i, params, original_node) }
+      elsif raw.is_a? String
+        alter_string(raw, params, original_node)
+      else
+        raw
+      end
     end
 
     def find_resource_nodes(node)
