@@ -33,23 +33,23 @@ module RamlParser
           when 'resourceTypes'
             n.each { |n2| n2.each { |n3| root.resource_types[n3.key] = n3 } }
           when 'documentation'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'securitySchemes'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'securedBy'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'mediaType'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'schemas'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'baseUriParameters'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'uriParameters'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when /^\//
             # gets handled separately
           else
-            key_unknown(node, n.key)
+            error(:key_unknown, node, n.key)
         end
       end
 
@@ -61,7 +61,7 @@ module RamlParser
         end
 
         if (n.data.uri_parameters.keys - n.data.relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }).length > 0
-          semantic_error(n, "Found URI parameter definition for non existent key")
+          error(:semantic_error, n, "Found URI parameter definition for non existent key")
         end
       }
       root.resources = resource_nodes.map { |n| n.data }
@@ -92,7 +92,7 @@ module RamlParser
               elsif n2.is_a? Hash
                 resource.is = resource.is.merge(n2)
               else
-                semantic_error(node, 'Invalid is format')
+                error(:semantic_error, node, 'Invalid is format')
               end
             }
           when 'type'
@@ -101,24 +101,26 @@ module RamlParser
             elsif n.value.is_a? Hash
               resource.type = n.value
             else
-              semantic_error(node, 'Invalid type format')
+              error(:semantic_error, node, 'Invalid type format')
             end
           when 'securedBy'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'usage'
             unless as_resource_type
-              key_unknown(node, n.key)
+              error(:key_unknown, node, n.key)
+            else
+              not_yet_supported(node, n.key)
             end
           when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
             if not n.key.end_with? '?' or as_resource_type
               resource.methods[n.key] = parse_method(root, n, resource, as_resource_type)
             else
-              key_unknown(node, n.key)
+              error(:key_unknown, node, n.key)
             end
           when /^\//
             # gets handled separately
           else
-            key_unknown(node, n.key)
+            error(:key_unknown, node, n.key)
         end
       }
 
@@ -155,15 +157,15 @@ module RamlParser
               elsif n2.is_a? Hash
                 method.is = method.is.merge(n2)
               else
-                semantic_error(node, 'Invalid is format')
+                error(:key_unknown, node, 'Invalid is format')
               end
             }
           when 'securedBy'
-            key_not_yet_supported(node, n.key)
+            not_yet_supported(node, n.key)
           when 'headers'
             n.each { |n2| method.headers[n2.key] = parse_named_parameter(root, n2) }
           else
-            key_unknown(node, n.key)
+            error(:key_unknown, node, n.key)
         end
       }
 
@@ -189,7 +191,7 @@ module RamlParser
           when 'headers'
             n.each { |n2| response.headers[n2.key] = parse_named_parameter(root, n2) }
           else
-            key_unknown(node, n.key)
+            error(:key_unknown, node, n.key)
         end
       end
 
@@ -233,7 +235,7 @@ module RamlParser
           when 'pattern'
             named_parameter.pattern = n.value
           else
-            key_unknown(node, n.key)
+            error(:key_unknown, node, n.key)
         end
       }
 
@@ -258,15 +260,15 @@ module RamlParser
             if needs_form_parameters
               n.each { |n2| body.form_parameters[n2.key] = parse_named_parameter(root, n2) }
             else
-              semantic_error(node, 'Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data')
+              error(:key_unknown, node, 'Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data')
             end
           else
-            key_unknown(node, n.key)
+            error(:key_unknown, node, n.key)
         end
       end
 
       if needs_form_parameters and body.form_parameters.empty?
-        semantic_error(node, 'Requests with media type application/x-www-form-urlencoded or multipart/form-data must supply form parameters')
+        error(:key_unknown, node, 'Requests with media type application/x-www-form-urlencoded or multipart/form-data must supply form parameters')
       end
 
       body
@@ -293,7 +295,7 @@ module RamlParser
         if resource_type != nil
           result = Model::Resource.merge(result, resource_type)
         else
-          semantic_error(node, "Importing unknown resource type #{name}")
+          error(:key_unknown, node, "Importing unknown resource type #{name}")
         end
       end
 
@@ -322,7 +324,7 @@ module RamlParser
         if trait != nil
           result = Model::Method.merge(result, trait)
         else
-          semantic_error(node, "Importing unknown trait #{name}")
+          error(:key_unknown, node, "Importing unknown trait #{name}")
         end
       end
 
@@ -340,7 +342,7 @@ module RamlParser
             when 'pluralize'
               not_yet_supported(original_node, 'Pluralization of parameters')
             else
-              semantic_error(original_node, "Unknown parameter pipe function '#{$3}'")
+              error(:key_unknown, original_node, "Unknown parameter pipe function '#{$3}'")
           end
         end
       end
@@ -369,9 +371,9 @@ module RamlParser
       nodes.flatten
     end
 
-    def key_not_yet_supported(node, key)
-      message = "Not yet supported key '#{key}' at node #{node.path}"
-      case @options[:not_yet_supported]
+    def error(type, node, message)
+      message = "#{node.path}: #{message}"
+      case @options[type]
         when :ignore
         when :warning
           puts message
@@ -380,37 +382,8 @@ module RamlParser
       end
     end
 
-    def key_unknown(node, key)
-      message = "Unknown key '#{key}' at node #{node.path}"
-      case @options[:key_unknown]
-        when :ignore
-        when :warning
-          puts message
-        else
-          raise message
-      end
-    end
-
-    def not_yet_supported(node, msg)
-      message = "Not yet supported '#{msg}' at node #{node.path}"
-      case @options[:not_yet_supported]
-        when :ignore
-        when :warning
-          puts message
-        else
-          raise message
-      end
-    end
-
-    def semantic_error(node, err)
-      message = "Error '#{err}' at node #{node.path}"
-      case @options[:semantic_error]
-        when :ignore
-        when :warning
-          puts message
-        else
-          raise message
-      end
+    def not_yet_supported(node, what)
+      error(:not_yet_supported, node, "Not yet supported #{what}")
     end
   end
 end
