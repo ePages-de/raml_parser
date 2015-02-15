@@ -28,10 +28,10 @@ RSpec.describe RamlParser::Parser do
 
   it 'parses URI parameters' do
     raml = RamlParser::Parser.new('spec/examples/raml/uriparameters.raml', all_errors).root
-    expect(raml.resources[0].uri_parameters.map { |name,param| param.name }).to eq []
-    expect(raml.resources[1].uri_parameters.map { |name,param| param.name }).to eq ['first']
-    expect(raml.resources[2].uri_parameters.map { |name,param| param.name }).to eq ['first', 'second']
-    expect(raml.resources[3].uri_parameters.map { |name,param| param.name }).to eq ['third']
+    expect(raml.resources[0].uri_parameters.map { |_,param| param.name }).to eq []
+    expect(raml.resources[1].uri_parameters.map { |_,param| param.name }).to eq ['first']
+    expect(raml.resources[2].uri_parameters.map { |_,param| param.name }).to eq ['first', 'second']
+    expect(raml.resources[3].uri_parameters.map { |_,param| param.name }).to eq ['third']
     expect(raml.resources[2].uri_parameters['first'].display_name).to eq 'first'
     expect(raml.resources[2].uri_parameters['second'].display_name).to eq 'This is the second uri parameter'
   end
@@ -136,7 +136,7 @@ RSpec.describe RamlParser::Parser do
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     files.each { |f|
-      raml = RamlParser::Parser.new(f, { :not_yet_supported => :warning }).root
+      RamlParser::Parser.new(f, { :not_yet_supported => :warning }).root
     }
   end
 end
