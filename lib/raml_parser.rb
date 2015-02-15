@@ -5,294 +5,156 @@ module RamlParser
   class Parser
     attr_reader :path, :root
 
-    def initialize(path, options = {})
-      @path = path
+    def initialize(options = {})
       @options = {
           :semantic_error => :error,
           :key_unknown => :error,
           :not_yet_supported => :warning
       }.merge(options)
-      @traits = {}
-      @resource_types = {}
-      parse_file(@path)
+    end
+
+    def parse_file(path)
+      node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
+      parse_root(node)
     end
 
     private
 
-    def parse_file(path)
-      tree = YamlTree.new(YamlHelper.read_yaml(path))
-      parse_root(tree.root)
-    end
-
     def parse_root(node)
-      @root = Model::Root.new
+      root = Model::Root.new
+      root.title = node.hash('title').or_default('').value
+      root.base_uri = node.hash('baseUri').or_default('').value
+      root.version = node.hash('version').value
+      root.media_type = node.hash('mediaType').value
+      root.secured_by = node.hash('securedBy').or_default([]).value
+      root.documentation = node.hash('documentation').array_map { |n| parse_documenation(n) }
+      root.security_schemes = node.hash('securitySchemes').arrayhash_map { |n| parse_security_scheme(n) }
+      root.resource_types = node.hash('resourceTypes').arrayhash_map { |n| n }
+      root.traits = node.hash('traits').arrayhash_map { |n| n }
 
-      node.each do |n|
-        case n.key
-          when 'title'
-            @root.title = n.value
-          when 'baseUri'
-            @root.base_uri = n.value
-          when 'version'
-            @root.version = n.value
-          when 'traits'
-            n.each { |n2| n2.each { |n3| @traits[n3.key] = n3 } }
-          when 'resourceTypes'
-            n.each { |n2| n2.each { |n3| @resource_types[n3.key] = n3 } }
-          when 'securitySchemes'
-            n.each { |n2| n2.each { |n3| @root.security_schemes[n3.key] = parse_security_scheme(n3) } }
-          when 'documentation'
-            @root.documentation += n.map { |n2| parse_documenation(n2) }
-          when 'securedBy'
-            @root.secured_by = n.value
-          when 'mediaType'
-            @root.media_type = n.value
-          when 'schemas'
-            not_yet_supported(node, n.key)
-          when 'baseUriParameters'
-            not_yet_supported(node, n.key)
-          when 'uriParameters'
-            not_yet_supported(node, n.key)
-          when /^\//
-            # gets handled separately
-          else
-            error(:key_unknown, node, n.key)
-        end
+      root.resources = traverse_resources(node, nil) do |n,parent|
+        parent_absolute_uri = parent != nil ? parent.absolute_uri : root.base_uri || ''
+        parent_relative_uri = parent != nil ? parent.relative_uri : ''
+        parent_uri_parameters = parent != nil ? parent.uri_parameters.clone : {}
+        parse_resource(n, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, false)
       end
 
-      @root.resources = find_resource_nodes(node).map do |n|
-        parent_absolute_uri = n.parent.data != nil ? n.parent.data.absolute_uri : @root.base_uri || ''
-        parent_relative_uri = n.parent.data != nil ? n.parent.data.relative_uri : ''
-        parent_uri_parameters = n.parent.data != nil ? n.parent.data.uri_parameters.clone : {}
-        resource = parse_resource(n, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, false)
-        n.data = resource
-
-        if (resource.uri_parameters.keys - resource.relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }).length > 0
-          error(:semantic_error, n, "Found URI parameter definition for non existent key")
-        end
-
-        resource
-      end
+      root
     end
 
-    def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
-      resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
-      resource.uri_parameters = parent_uri_parameters unless as_resource_type
-      resource.secured_by = @root.secured_by.clone unless as_resource_type
+    def parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
+      def extract_uri_parameters(relative_uri)
+        names = relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
+        Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
+      end
 
-      node.each { |n|
-        case n.key
-          when 'displayName'
-            resource.display_name = n.value
-          when 'description'
-            resource.description = n.value
-          when 'uriParameters'
-            n.each { |n2| resource.uri_parameters[n2.key] = parse_named_parameter(n2) }
-          when 'type'
-            resource.type = resource.type.merge(parse_type(n))
-          when 'is'
-            resource.is = resource.is.merge(parse_is(n))
-          when 'securedBy'
-            resource.secured_by = (resource.secured_by + n.value).uniq
-          when 'usage'
-            unless as_resource_type
-              error(:key_unknown, node, n.key)
-            end
-          when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
-            if not n.key.end_with? '?' or as_resource_type
-              resource.methods[n.key] = parse_method(n, resource, as_resource_type)
-            else
-              error(:key_unknown, node, n.key)
-            end
-          when /^\//
-            # gets handled separately
-          else
-            error(:key_unknown, node, n.key)
+      node = node.or_default({})
+      resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
+      resource.display_name = node.hash('displayName').value
+      resource.description = node.hash('description').value
+      resource.uri_parameters = extract_uri_parameters(node.key).merge(parent_uri_parameters.merge(node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }))
+      resource.type = parse_type(node.hash('type'))
+      resource.is = parse_is(node.hash('is'))
+      resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).value).uniq
+
+      for m in %w(get post put delete head patch options trace connect) do
+        if node.value.has_key? m
+          resource.methods[m] = parse_method(node.hash(m), root, resource, as_resource_type)
         end
-      }
+      end
 
       unless as_resource_type
-        resource = mixin_resource_types(resource, node)
+        resource = mixin_resource_types(node, root, resource)
         resource.display_name = resource.relative_uri unless resource.display_name
-        (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
-          resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
-        end
       end
 
       resource
     end
 
-    def parse_method(node, resource, as_trait)
+    def parse_method(node, root, resource, as_trait)
+      node = node.or_default({})
       method = Model::Method.new(node.key.upcase)
-      method.secured_by = resource.secured_by.clone unless as_trait
-
-      node.each { |n|
-        case n.key
-          when 'displayName'
-            method.display_name = n.value
-          when 'description'
-            method.description = n.value
-          when 'queryParameters'
-            n.each { |n2| method.query_parameters[n2.key] = parse_named_parameter(n2) }
-          when 'body'
-            n.each { |n2| method.bodies[n2.key] = parse_body(n2) }
-          when 'responses'
-            n.each { |n2| method.responses[n2.key] = parse_response(n2) }
-          when 'is'
-            method.is = method.is.merge(parse_is(n))
-          when 'securedBy'
-            method.secured_by = (method.secured_by + n.value).uniq
-          when 'headers'
-            n.each { |n2| method.headers[n2.key] = parse_named_parameter(n2) }
-          else
-            error(:key_unknown, node, n.key)
-        end
-      }
+      method.display_name = node.hash('displayName').value
+      method.description = node.hash('description').value
+      method.query_parameters = node.hash('queryParameters').hash_map { |n| parse_named_parameter(n) }
+      method.bodies = node.hash('body').hash_map { |n| parse_body(n) }
+      method.responses = node.hash('responses').hash_map { |n| parse_response(n) }
+      method.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
+      method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).value).uniq if resource
+      method.is = parse_is(node.hash('is'))
 
       unless as_trait
-        method = mixin_traits(method, resource, node)
-        method.display_name = method.method unless method.display_name
+        method = mixin_traits(node, root, method, resource)
+        method.display_name = method.method + ' ' + resource.relative_uri unless method.display_name
       end
 
       method
     end
 
     def parse_response(node)
+      node = node.or_default({})
       response = Model::Response.new(node.key)
-
-      node.each do |n|
-        case n.key
-          when 'displayName'
-            response.display_name = n.value
-          when 'description'
-            response.description = n.value
-          when 'body'
-            n.each { |n2| response.bodies[n2.key] = parse_body(n2) }
-          when 'headers'
-            n.each { |n2| response.headers[n2.key] = parse_named_parameter(n2) }
-          else
-            error(:key_unknown, node, n.key)
-        end
-      end
-
+      response.display_name = node.hash('displayName').value
+      response.description = node.hash('description').value
+      response.bodies = node.hash('body').hash_map { |n| parse_body(n) }
+      response.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
       response
     end
 
     def parse_named_parameter(node)
-      named_parameter = Model::NamedParameter.new(node.key)
-
       if node.value.is_a? Array
         not_yet_supported(node, 'Named parameters with multiple types')
-        return named_parameter
+        return Model::NamedParameter.new(node.key)
       end
 
-      node.each { |n|
-        case n.key
-          when 'type'
-            named_parameter.type = n.value
-          when 'displayName'
-            named_parameter.display_name = n.value
-          when 'description'
-            named_parameter.description = n.value
-          when 'required'
-            named_parameter.required = n.value
-          when 'default'
-            named_parameter.default = n.value
-          when 'example'
-            named_parameter.example = n.value
-          when 'minLength'
-            named_parameter.min_length = n.value
-          when 'maxLength'
-            named_parameter.max_length = n.value
-          when 'minimum'
-            named_parameter.minimum = n.value
-          when 'maximum'
-            named_parameter.maximum = n.value
-          when 'repeat'
-            named_parameter.repeat = n.value
-          when 'enum'
-            named_parameter.enum = n.value
-          when 'pattern'
-            named_parameter.pattern = n.value
-          else
-            error(:key_unknown, node, n.key)
-        end
-      }
-
-      named_parameter.type = 'string' unless named_parameter.type != nil
-      named_parameter.display_name = named_parameter.name unless named_parameter.display_name != nil
-      named_parameter.required = false unless named_parameter.required != nil
-
+      node = node.or_default({})
+      named_parameter = Model::NamedParameter.new(node.key)
+      named_parameter.type = node.hash('type').or_default('string').value
+      named_parameter.display_name = node.hash('displayName').or_default(named_parameter.name).value
+      named_parameter.description = node.hash('description').value
+      named_parameter.required = node.hash('required').or_default(true).value
+      named_parameter.default = node.hash('default').value
+      named_parameter.example = node.hash('example').value
+      named_parameter.min_length = node.hash('minLength').value
+      named_parameter.max_length = node.hash('maxLength').value
+      named_parameter.minimum = node.hash('minimum').value
+      named_parameter.maximum = node.hash('maximum').value
+      named_parameter.repeat = node.hash('repeat').value
+      named_parameter.enum = node.hash('enum').value
+      named_parameter.pattern = node.hash('pattern').value
       named_parameter
     end
 
     def parse_body(node)
+      node = node.or_default({})
       body = Model::Body.new(node.key)
-      needs_form_parameters = ['application/x-www-form-urlencoded', 'multipart/form-data'].include? body.media_type
-
-      node.each do |n|
-        case n.key
-          when 'example'
-            body.example = n.value
-          when 'schema'
-            body.schema = n.value
-          when 'formParameters'
-            if needs_form_parameters
-              n.each { |n2| body.form_parameters[n2.key] = parse_named_parameter(n2) }
-            else
-              error(:key_unknown, node, 'Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data')
-            end
-          else
-            error(:key_unknown, node, n.key)
-        end
-      end
-
-      if needs_form_parameters and body.form_parameters.empty?
-        error(:key_unknown, node, 'Requests with media type application/x-www-form-urlencoded or multipart/form-data must supply form parameters')
-      end
-
+      body.example = node.hash('example').value
+      body.schema = node.hash('schema').value
+      body.form_parameters = node.hash('formParameters').hash_map { |n| parse_named_parameter(n) }
+      # TODO: Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data
       body
     end
 
     def parse_security_scheme(node)
+      node = node.or_default({})
       security_scheme = Model::SecurityScheme.new(node.key)
-
-      node.each do |n|
-        case n.key
-          when 'type'
-            security_scheme.type = n.value
-          when 'description'
-            security_scheme.description = n.value
-          when 'describedBy'
-            security_scheme.described_by = parse_method(n, nil, true)
-          when 'settings'
-            security_scheme.settings = n.value
-          else
-            error(:key_unknown, node, n.key)
-        end
-      end
-
+      security_scheme.type = node.hash('type').value
+      security_scheme.description = node.hash('description').value
+      security_scheme.described_by = node.hash('describedBy').value
+      security_scheme.settings = node.hash('settings').value
       security_scheme
     end
 
     def parse_documenation(node)
+      node = node.or_default({})
       documentation = Model::Documentation.new
-
-      node.each do |n|
-        case n.key
-          when 'title'
-            documentation.title = n.value
-          when 'content'
-            documentation.content = n.value
-          else
-            error(:key_unknown, node, n.key)
-        end
-      end
-
+      documentation.title = node.hash('title').value
+      documentation.content = node.hash('content').value
       documentation
     end
 
     def parse_type(node)
+      node = node.or_default({})
       result = {}
       if node.value.is_a? String
         result = { node.value => nil }
@@ -305,6 +167,7 @@ module RamlParser
     end
 
     def parse_is(node)
+      node = node.or_default({})
       result = {}
       node.value.each { |n|
         if n.is_a? String
@@ -318,14 +181,14 @@ module RamlParser
       result
     end
 
-    def mixin_resource_types(resource, node)
+    def mixin_resource_types(node, root, resource)
       result = Model::Resource.new(nil, nil)
       resource.type.each do |name,value|
         params = (value || {}).merge({
             'resourcePath' => resource.relative_uri,
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
         })
-        resource_type = @resource_types.has_key?(name) ? parse_resource(resolve_parametrization(@resource_types[name], params), '', '', {}, true) : nil
+        resource_type = root.resource_types.has_key?(name) ? parse_resource(resolve_parametrization(root.resource_types[name], params), root, '', '', {}, true) : nil
         if resource_type != nil
           result = Model::Resource.merge(result, resource_type)
         else
@@ -336,7 +199,7 @@ module RamlParser
       Model::Resource.merge(result, resource)
     end
 
-    def mixin_traits(method, resource, node)
+    def mixin_traits(node, root, method, resource)
       result = Model::Method.new(nil)
       (resource.is.merge(method.is)).each do |name,value|
         params = (value || {}).merge({
@@ -344,7 +207,7 @@ module RamlParser
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
             'methodName' => method.method.downcase
         })
-        trait = @traits.has_key?(name) ? parse_method(resolve_parametrization(@traits[name], params), nil, true) : nil
+        trait = root.traits.has_key?(name) ? parse_method(resolve_parametrization(root.traits[name], params), root, nil, true) : nil
         if trait != nil
           result = Model::Method.merge(result, trait)
         else
@@ -388,17 +251,15 @@ module RamlParser
       YamlNode.new(node.parent, node.key, traverse(node.value, params, node))
     end
 
-    def find_resource_nodes(node)
-      nodes = []
-
-      node.each do |n|
+    def traverse_resources(node, parent_resource, &code)
+      node.hash_map { |n|
         if n.key =~ /^\//
-          nodes << n
-          nodes += find_resource_nodes(n)
+          resource = code.call(n, parent_resource)
+          [resource] + traverse_resources(n, resource, &code)
+        else
+          []
         end
-      end
-
-      nodes.flatten
+      }.values.flatten
     end
 
     def error(type, node, message)
