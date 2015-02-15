@@ -1,7 +1,7 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :traits, :resource_types, :resources
+      attr_accessor :title, :base_uri, :version, :resources
 
       def initialize(title = nil, base_uri = nil, version = nil, resources = [])
         @title = title
