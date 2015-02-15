@@ -7,23 +7,23 @@ RSpec.describe RamlParser::Parser do
       :not_yet_supported => :error
   }
 
+  it 'finds all resources' do
+    raml = RamlParser::Parser.new('spec/examples/raml/resources.raml', all_errors).root
+    expect(raml.resources.map { |r| r.absolute_uri }).to eq [
+        'http://localhost:3000/first',
+        'http://localhost:3000/first/second',
+        'http://localhost:3000/third',
+        'http://localhost:3000/with',
+        'http://localhost:3000/with/{uri}',
+        'http://localhost:3000/with/{uri}/{params}'
+    ]
+  end
+
   it 'parses basic globals' do
     raml = RamlParser::Parser.new('spec/examples/raml/simple.raml', all_errors).root
     expect(raml.title).to eq 'Example API'
     expect(raml.base_uri).to eq 'http://localhost:3000'
     expect(raml.version).to eq 'v123'
-  end
-
-  it 'finds all resources' do
-    raml = RamlParser::Parser.new('spec/examples/raml/resources.raml', all_errors).root
-    expect(raml.resources.map { |r| r.absolute_uri }).to eq [
-      'http://localhost:3000/first',
-      'http://localhost:3000/first/second',
-      'http://localhost:3000/third',
-      'http://localhost:3000/with',
-      'http://localhost:3000/with/{uri}',
-      'http://localhost:3000/with/{uri}/{params}'
-    ]
   end
 
   it 'parses URI parameters' do
@@ -46,40 +46,10 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['get'].query_parameters['q2'].display_name).to eq 'This is the second query parameter'
   end
 
-  it 'parses traits' do
-    raml = RamlParser::Parser.new('spec/examples/raml/traits.raml', all_errors).root
-    expect(raml.traits.map { |name,_| name }).to eq ['searchable', 'sortable']
-  end
-
-  it 'parses resource types' do
-    raml = RamlParser::Parser.new('spec/examples/raml/resourcetypes.raml', all_errors).root
-    expect(raml.resource_types.map { |name,_| name }).to eq ['collection']
-  end
-
   it 'parses responses' do
     raml = RamlParser::Parser.new('spec/examples/raml/responses.raml', all_errors).root
     expect(raml.resources[0].methods['get'].responses.map { |code,_| code }).to eq [200, 404]
     expect(raml.resources[0].methods['get'].responses.map { |_,res| res.status_code }).to eq [200, 404]
-  end
-
-  it 'mixes in traits' do
-    raml = RamlParser::Parser.new('spec/examples/raml/traits.raml', all_errors).root
-    expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
-    expect(raml.resources[0].methods['get'].display_name).to eq 'Foo'
-    expect(raml.resources[0].methods['get'].description).to eq 'This is sortable'
-    expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order', 'sort']
-    expect(raml.resources[1].methods['get'].display_name).to eq '/a/b'
-    expect(raml.resources[1].methods['get'].description).to eq 'This is resource /a/b'
-    expect(raml.resources[2].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order']
-    expect(raml.resources[3].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order', 'q']
-  end
-
-  it 'mixes in resource types' do
-    raml = RamlParser::Parser.new('spec/examples/raml/resourcetypes.raml', all_errors).root
-    expect(raml.resources[0].methods.keys).to eq ['get', 'post', 'put']
-    expect(raml.resources[0].methods['get'].description).to eq 'Get all items'
-    expect(raml.resources[0].methods['post'].description).to eq 'Overriden'
-    expect(raml.resources[0].methods['put'].description).to eq nil
   end
 
   it 'parses bodies' do
@@ -104,6 +74,26 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[0].methods['post'].bodies['application/x-www-form-urlencoded'].form_parameters['to'].description).to eq 'TO1'
     expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['from'].description).to eq 'FROM2'
     expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['to'].description).to eq 'TO2'
+  end
+
+  it 'mixes in traits' do
+    raml = RamlParser::Parser.new('spec/examples/raml/traits.raml', all_errors).root
+    expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
+    expect(raml.resources[0].methods['get'].display_name).to eq 'Foo'
+    expect(raml.resources[0].methods['get'].description).to eq 'This is sortable'
+    expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order', 'sort']
+    expect(raml.resources[1].methods['get'].display_name).to eq '/a/b'
+    expect(raml.resources[1].methods['get'].description).to eq 'This is resource /a/b'
+    expect(raml.resources[2].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order']
+    expect(raml.resources[3].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order', 'q']
+  end
+
+  it 'mixes in resource types' do
+    raml = RamlParser::Parser.new('spec/examples/raml/resourcetypes.raml', all_errors).root
+    expect(raml.resources[0].methods.keys).to eq ['get', 'post', 'put']
+    expect(raml.resources[0].methods['get'].description).to eq 'Get all items'
+    expect(raml.resources[0].methods['post'].description).to eq 'Overriden'
+    expect(raml.resources[0].methods['put'].description).to eq nil
   end
 
   it 'falls back to default display name' do
