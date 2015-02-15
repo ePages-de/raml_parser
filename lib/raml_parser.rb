@@ -287,23 +287,13 @@ module RamlParser
     end
 
     def mixin_resource_types(resource, node)
-      def find_resource_type(name, params)
-        if @resource_types.has_key? name
-          unresolved = @resource_types[name]
-          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
-          parse_resource(resolved, '', '', {}, true)
-        else
-          nil
-        end
-      end
-
       result = Model::Resource.new(nil, nil)
       resource.type.each do |name,value|
         params = (value || {}).merge({
             'resourcePath' => resource.relative_uri,
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
         })
-        resource_type = find_resource_type(name, params)
+        resource_type = @resource_types.has_key?(name) ? parse_resource(resolve_parametrization(@resource_types[name], params), '', '', {}, true) : nil
         if resource_type != nil
           result = Model::Resource.merge(result, resource_type)
         else
@@ -315,16 +305,6 @@ module RamlParser
     end
 
     def mixin_traits(method, resource, node)
-      def find_trait(name, params)
-        if @traits.has_key? name
-          unresolved = @traits[name]
-          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
-          parse_method(resolved, nil, true)
-        else
-          nil
-        end
-      end
-
       result = Model::Method.new(nil)
       (resource.is.merge(method.is)).each do |name,value|
         params = (value || {}).merge({
@@ -332,7 +312,7 @@ module RamlParser
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
             'methodName' => method.method.downcase
         })
-        trait = find_trait(name, params)
+        trait = @traits.has_key?(name) ? parse_method(resolve_parametrization(@traits[name], params), nil, true) : nil
         if trait != nil
           result = Model::Method.merge(result, trait)
         else
@@ -343,31 +323,35 @@ module RamlParser
       Model::Method.merge(result, method)
     end
 
-    def resolve_parameters(raw, params, original_node)
-      def alter_string(str, params, original_node)
+    def resolve_parametrization(node, params)
+      def alter_string(str, params, node)
         str.gsub(/<<([a-zA-Z]+)(\s*\|\s*!([a-zA-Z_\-]+))?>>/) do |a,b|
           case $3
             when nil
               params[$1]
             when 'singularize'
-              not_yet_supported(original_node, 'Singularization of parameters')
+              not_yet_supported(node, 'Singularization of parameters')
             when 'pluralize'
-              not_yet_supported(original_node, 'Pluralization of parameters')
+              not_yet_supported(node, 'Pluralization of parameters')
             else
-              error(:key_unknown, original_node, "Unknown parameter pipe function '#{$3}'")
+              error(:key_unknown, node, "Unknown parameter pipe function '#{$3}'")
           end
         end
       end
 
-      if raw.is_a? Hash
-        Hash[raw.map { |k,v| [resolve_parameters(k, params, original_node), resolve_parameters(v, params, original_node)] }]
-      elsif raw.is_a? Array
-        raw.map { |i| resolve_parameters(i, params, original_node) }
-      elsif raw.is_a? String
-        alter_string(raw, params, original_node)
-      else
-        raw
+      def traverse(raw, params, node)
+        if raw.is_a? Hash
+          Hash[raw.map { |k,v| [traverse(k, params, node), traverse(v, params, node)] }]
+        elsif raw.is_a? Array
+          raw.map { |i| traverse(i, params, node) }
+        elsif raw.is_a? String
+          alter_string(raw, params, node)
+        else
+          raw
+        end
       end
+
+      YamlNode.new(node.parent, node.key, traverse(node.value, params, node))
     end
 
     def find_resource_nodes(node)
