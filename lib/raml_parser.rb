@@ -3,14 +3,19 @@ require 'raml_parser/model'
 
 module RamlParser
   class Parser
-    def initialize(options = {})
-      defaults = {
-        :semantic_error => :error,
-        :key_unknown => :error,
-        :not_yet_supported => :warning
-      }
-      @options = defaults.merge(options)
+    attr_reader :path, :root
+
+    def initialize(path, options = {})
+      @path = path
+      @options = {
+          :semantic_error => :error,
+          :key_unknown => :error,
+          :not_yet_supported => :warning
+      }.merge(options)
+      @root = parse_file(@path)
     end
+
+    private
 
     def parse_file(path)
       tree = YamlTree.new(YamlHelper.read_yaml(path))
