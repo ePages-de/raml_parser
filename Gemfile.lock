@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    raml_parser (0.0.2)
+    raml_parser (0.1.pre)
       activesupport (>= 4.0.0)
 
 GEM
