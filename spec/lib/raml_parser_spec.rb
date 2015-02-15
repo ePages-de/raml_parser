@@ -158,6 +158,7 @@ RSpec.describe RamlParser::Parser do
     parser = RamlParser::Parser.new(all_errors)
     raml = parser.parse_file('spec/examples/raml/issue2.raml')
 
+    expect(raml.resources[0].methods.keys).to eq ['post', 'get']
     expect(raml.resources[0].methods['get'].method).to eq 'GET'
     expect(raml.resources[0].methods['post'].method).to eq 'POST'
   end

@@ -123,7 +123,7 @@ module RamlParser
       }
 
       unless as_resource_type
-        resource = mixin_resource_types(resource, root.resource_types, node, root)
+        resource = mixin_resource_types(resource, node, root)
         resource.display_name = resource.relative_uri unless resource.display_name
       end
       (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
@@ -168,7 +168,7 @@ module RamlParser
       }
 
       unless as_trait
-        method = mixin_traits(method, resource, root.traits, node, root)
+        method = mixin_traits(method, resource, node, root)
         method.display_name = method.method unless method.display_name
       end
 
@@ -272,7 +272,45 @@ module RamlParser
       body
     end
 
-    def mixin_traits(method, resource, traits, node, root)
+    def mixin_resource_types(resource, node, root)
+      def find_resource_type(name, root, params)
+        if root.resource_types.has_key? name
+          unresolved = root.resource_types[name]
+          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
+          parse_resource(root, resolved, true)
+        else
+          nil
+        end
+      end
+
+      result = Model::Resource.new(nil, nil)
+      resource.type.each do |name,value|
+        params = (value || {}).merge({
+            'resourcePath' => resource.relative_uri,
+            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
+        })
+        resource_type = find_resource_type(name, root, params)
+        if resource_type != nil
+          result = Model::Resource.merge(result, resource_type)
+        else
+          semantic_error(node, "Importing unknown resource type #{name}")
+        end
+      end
+
+      Model::Resource.merge(result, resource)
+    end
+
+    def mixin_traits(method, resource, node, root)
+      def find_trait(name, root, params)
+        if root.traits.has_key? name
+          unresolved = root.traits[name]
+          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
+          parse_method(root, resolved, nil, true)
+        else
+          nil
+        end
+      end
+
       result = Model::Method.new(nil)
       (resource.is.merge(method.is)).each do |name,value|
         params = (value || {}).merge({
@@ -280,35 +318,15 @@ module RamlParser
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
             'methodName' => method.method.downcase
         })
-        if traits.has_key? name
-          unresolved = traits[name]
-          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
-          result = Model::Method.merge(result, parse_method(root, resolved, nil, true))
+        trait = find_trait(name, root, params)
+        if trait != nil
+          result = Model::Method.merge(result, trait)
         else
           semantic_error(node, "Importing unknown trait #{name}")
         end
       end
 
       Model::Method.merge(result, method)
-    end
-
-    def mixin_resource_types(resource, resource_types, node, root)
-      result = Model::Resource.new(nil, nil)
-      resource.type.each do |name,value|
-        params = (value || {}).merge({
-            'resourcePath' => resource.relative_uri,
-            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
-        })
-        if resource_types.has_key? name
-          unresolved = resource_types[name]
-          resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
-          result = Model::Resource.merge(result, parse_resource(root, resolved, true))
-        else
-          semantic_error(node, "Importing unknown resource type #{name}")
-        end
-      end
-
-      Model::Resource.merge(result, resource)
     end
 
     def resolve_parameters(raw, params, original_node)
