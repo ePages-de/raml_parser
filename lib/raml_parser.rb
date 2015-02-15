@@ -324,15 +324,17 @@ module RamlParser
     end
 
     def resolve_parametrization(node, params)
+      require 'active_support/core_ext/string/inflections'
+
       def alter_string(str, params, node)
         str.gsub(/<<([a-zA-Z]+)(\s*\|\s*!([a-zA-Z_\-]+))?>>/) do |a,b|
           case $3
             when nil
-              params[$1]
+              params[$1].to_s
             when 'singularize'
-              not_yet_supported(node, 'Singularization of parameters')
+              params[$1].to_s.singularize
             when 'pluralize'
-              not_yet_supported(node, 'Pluralization of parameters')
+              params[$1].to_s.pluralize
             else
               error(:key_unknown, node, "Unknown parameter pipe function '#{$3}'")
           end

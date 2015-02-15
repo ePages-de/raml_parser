@@ -133,6 +133,15 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[3].description).to eq '/third/fourth and fourth and Finish'
   end
 
+  it 'handles singularization/pluralization of parametrization' do
+    raml = RamlParser::Parser.new('spec/examples/raml/parametersinflection.raml', all_errors).root
+
+    expect(raml.resources[0].methods['get'].description).to eq 'Keep userName'
+    expect(raml.resources[0].methods['post'].description).to eq 'Plu userNames'
+    expect(raml.resources[1].methods['get'].description).to eq 'Keep passwords'
+    expect(raml.resources[1].methods['post'].description).to eq 'Sing password'
+  end
+
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     files.each { |f|
