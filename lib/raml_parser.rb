@@ -64,7 +64,7 @@ module RamlParser
         parent_absolute_uri = n.parent.data != nil ? n.parent.data.absolute_uri : root.base_uri || ''
         parent_relative_uri = n.parent.data != nil ? n.parent.data.relative_uri : ''
         parent_uri_parameters = n.parent.data != nil ? n.parent.data.uri_parameters.clone : {}
-        resource = parse_resource(root, n, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, false)
+        resource = parse_resource(n, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, false)
         n.data = resource
 
         if resource.uri_parameters.keys.include? 'mediaTypeExtension'
@@ -81,7 +81,7 @@ module RamlParser
       root
     end
 
-    def parse_resource(root, node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
+    def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.uri_parameters = parent_uri_parameters
 
@@ -92,7 +92,7 @@ module RamlParser
           when 'description'
             resource.description = n.value
           when 'uriParameters'
-            n.each { |n2| resource.uri_parameters[n2.key] = parse_named_parameter(root, n2) }
+            n.each { |n2| resource.uri_parameters[n2.key] = parse_named_parameter(n2) }
           when 'type'
             resource.type = resource.type.merge(parse_type(n))
           when 'is'
@@ -107,7 +107,7 @@ module RamlParser
             end
           when /^(get|post|put|delete|head|patch|options|trace|connect)\??$/
             if not n.key.end_with? '?' or as_resource_type
-              resource.methods[n.key] = parse_method(root, n, resource, as_resource_type)
+              resource.methods[n.key] = parse_method(n, resource, as_resource_type)
             else
               error(:key_unknown, node, n.key)
             end
@@ -119,7 +119,7 @@ module RamlParser
       }
 
       unless as_resource_type
-        resource = mixin_resource_types(resource, node, root)
+        resource = mixin_resource_types(resource, node)
         resource.display_name = resource.relative_uri unless resource.display_name
         (node.key.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first } - resource.uri_parameters.keys).each do |name|
           resource.uri_parameters[name] = Model::NamedParameter.new(name, 'string', name)
@@ -129,7 +129,7 @@ module RamlParser
       resource
     end
 
-    def parse_method(root, node, resource, as_trait)
+    def parse_method(node, resource, as_trait)
       method = Model::Method.new(node.key.upcase)
 
       node.each { |n|
@@ -139,31 +139,31 @@ module RamlParser
           when 'description'
             method.description = n.value
           when 'queryParameters'
-            n.each { |n2| method.query_parameters[n2.key] = parse_named_parameter(root, n2) }
+            n.each { |n2| method.query_parameters[n2.key] = parse_named_parameter(n2) }
           when 'body'
-            n.each { |n2| method.bodies[n2.key] = parse_body(root, n2) }
+            n.each { |n2| method.bodies[n2.key] = parse_body(n2) }
           when 'responses'
-            n.each { |n2| method.responses[n2.key] = parse_response(root, n2) }
+            n.each { |n2| method.responses[n2.key] = parse_response(n2) }
           when 'is'
             method.is = method.is.merge(parse_is(n))
           when 'securedBy'
             not_yet_supported(node, n.key)
           when 'headers'
-            n.each { |n2| method.headers[n2.key] = parse_named_parameter(root, n2) }
+            n.each { |n2| method.headers[n2.key] = parse_named_parameter(n2) }
           else
             error(:key_unknown, node, n.key)
         end
       }
 
       unless as_trait
-        method = mixin_traits(method, resource, node, root)
+        method = mixin_traits(method, resource, node)
         method.display_name = method.method unless method.display_name
       end
 
       method
     end
 
-    def parse_response(root, node)
+    def parse_response(node)
       response = Model::Response.new(node.key)
 
       node.each do |n|
@@ -173,9 +173,9 @@ module RamlParser
           when 'description'
             response.description = n.value
           when 'body'
-            n.each { |n2| response.bodies[n2.key] = parse_body(root, n2) }
+            n.each { |n2| response.bodies[n2.key] = parse_body(n2) }
           when 'headers'
-            n.each { |n2| response.headers[n2.key] = parse_named_parameter(root, n2) }
+            n.each { |n2| response.headers[n2.key] = parse_named_parameter(n2) }
           else
             error(:key_unknown, node, n.key)
         end
@@ -184,7 +184,7 @@ module RamlParser
       response
     end
 
-    def parse_named_parameter(root, node)
+    def parse_named_parameter(node)
       named_parameter = Model::NamedParameter.new(node.key)
 
       if node.value.is_a? Array
@@ -232,7 +232,7 @@ module RamlParser
       named_parameter
     end
 
-    def parse_body(root, node)
+    def parse_body(node)
       body = Model::Body.new(node.key)
       needs_form_parameters = ['application/x-www-form-urlencoded', 'multipart/form-data'].include? body.media_type
 
@@ -244,7 +244,7 @@ module RamlParser
             body.schema = n.value
           when 'formParameters'
             if needs_form_parameters
-              n.each { |n2| body.form_parameters[n2.key] = parse_named_parameter(root, n2) }
+              n.each { |n2| body.form_parameters[n2.key] = parse_named_parameter(n2) }
             else
               error(:key_unknown, node, 'Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data')
             end
@@ -286,12 +286,12 @@ module RamlParser
       result
     end
 
-    def mixin_resource_types(resource, node, root)
-      def find_resource_type(name, root, params)
+    def mixin_resource_types(resource, node)
+      def find_resource_type(name, params)
         if @resource_types.has_key? name
           unresolved = @resource_types[name]
           resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
-          parse_resource(root, resolved, '', '', {}, true)
+          parse_resource(resolved, '', '', {}, true)
         else
           nil
         end
@@ -303,7 +303,7 @@ module RamlParser
             'resourcePath' => resource.relative_uri,
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
         })
-        resource_type = find_resource_type(name, root, params)
+        resource_type = find_resource_type(name, params)
         if resource_type != nil
           result = Model::Resource.merge(result, resource_type)
         else
@@ -314,12 +314,12 @@ module RamlParser
       Model::Resource.merge(result, resource)
     end
 
-    def mixin_traits(method, resource, node, root)
-      def find_trait(name, root, params)
+    def mixin_traits(method, resource, node)
+      def find_trait(name, params)
         if @traits.has_key? name
           unresolved = @traits[name]
           resolved = YamlNode.new(unresolved.parent, unresolved.key, resolve_parameters(unresolved.value, params, unresolved))
-          parse_method(root, resolved, nil, true)
+          parse_method(resolved, nil, true)
         else
           nil
         end
@@ -332,7 +332,7 @@ module RamlParser
             'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
             'methodName' => method.method.downcase
         })
-        trait = find_trait(name, root, params)
+        trait = find_trait(name, params)
         if trait != nil
           result = Model::Method.merge(result, trait)
         else
