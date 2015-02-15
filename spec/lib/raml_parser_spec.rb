@@ -77,10 +77,32 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['to'].description).to eq 'TO2'
   end
 
+  it 'parses security schemes' do
+    raml = RamlParser::Parser.new('spec/examples/raml/securityschemes.raml', all_errors).root
+    expect(raml.security_schemes.keys).to eq ['oauth_2_0', 'oauth_1_0', 'customHeader']
+    expect(raml.security_schemes['oauth_2_0'].type).to eq 'OAuth 2.0'
+    expect(raml.security_schemes['oauth_1_0'].type).to eq 'OAuth 1.0'
+    expect(raml.security_schemes['customHeader'].type).to eq nil
+  end
+
   it 'parses documentation' do
     raml = RamlParser::Parser.new('spec/examples/raml/documentation.raml', all_errors).root
     expect(raml.documentation[0].title).to eq 'Home'
     expect(raml.documentation[1].title).to eq 'FAQ'
+  end
+
+  it 'handle secured by' do
+    raml1 = RamlParser::Parser.new('spec/examples/raml/securedby1.raml', all_errors).root
+    expect(raml1.resources[0].methods['get'].secured_by).to eq ['oauth_1_0']
+    expect(raml1.resources[0].methods['post'].secured_by).to eq ['oauth_2_0']
+    expect(raml1.resources[1].methods['get'].secured_by).to eq ['oauth_1_0', nil, 'oauth_2_0']
+    expect(raml1.resources[1].methods['post'].secured_by).to eq ['oauth_1_0', 'oauth_2_0']
+
+    raml2 = RamlParser::Parser.new('spec/examples/raml/securedby2.raml', all_errors).root
+    expect(raml2.resources[0].methods['get'].secured_by).to eq ['oauth_2_0', 'oauth_1_0']
+    expect(raml2.resources[0].methods['post'].secured_by).to eq ['oauth_2_0']
+    expect(raml2.resources[1].methods['get'].secured_by).to eq ['oauth_2_0', 'oauth_1_0', nil]
+    expect(raml2.resources[1].methods['post'].secured_by).to eq ['oauth_2_0', 'oauth_1_0']
   end
 
   it 'mixes in traits' do

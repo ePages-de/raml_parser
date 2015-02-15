@@ -1,22 +1,24 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :media_type, :resources, :documentation
+      attr_accessor :title, :base_uri, :version, :media_type, :security_schemes, :secured_by, :resources, :documentation
 
-      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, resources = [], documentation = [])
+      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, security_schemes = {}, secured_by = [], resources = [], documentation = [])
         @title = title
         @base_uri = base_uri
         @version = version
         @media_type = media_type
+        @security_schemes = security_schemes
+        @secured_by = secured_by
         @resources = resources
         @documentation = documentation
       end
     end
 
     class Resource
-      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :type, :is
+      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :type, :is, :secured_by
 
-      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, type = {}, is = {})
+      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, type = {}, is = {}, secured_by = [])
         @absolute_uri = absolute_uri
         @relative_uri = relative_uri
         @display_name = display_name
@@ -25,6 +27,7 @@ module RamlParser
         @methods = methods
         @type = type
         @is = is
+        @secured_by = secured_by
       end
 
       def self.merge(a, b)
@@ -36,15 +39,16 @@ module RamlParser
         resource.methods = a.methods.merge(b.methods)
         resource.type = a.type.merge(b.type)
         resource.is = a.is.merge(b.is)
+        resource.secured_by = (a.secured_by + b.secured_by).uniq
 
         resource
       end
     end
 
     class Method
-      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :headers, :is
+      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :headers, :is, :secured_by
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {})
+      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {}, secured_by = [])
         @method = method
         @display_name = display_name
         @description = description
@@ -53,6 +57,7 @@ module RamlParser
         @bodies = bodies
         @headers = headers
         @is = is
+        @secured_by = secured_by
       end
 
       def self.merge(a, b)
@@ -65,6 +70,7 @@ module RamlParser
         method.bodies = a.bodies.merge(b.bodies)
         method.headers = a.headers.merge(b.headers)
         method.is = a.is.merge(b.is)
+        method.secured_by = (a.secured_by + b.secured_by).uniq
 
         method
       end
@@ -120,6 +126,18 @@ module RamlParser
       def initialize(title = nil, content = nil)
         @title = title
         @content = content
+      end
+    end
+
+    class SecurityScheme
+      attr_accessor :name, :type, :description, :described_by, :settings
+
+      def initialize(name, type = nil, description = nil, described_by = nil, settings = {})
+        @name = name
+        @type = type
+        @description = description
+        @described_by = described_by
+        @settings = settings
       end
     end
   end
