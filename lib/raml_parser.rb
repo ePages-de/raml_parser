@@ -6,11 +6,6 @@ module RamlParser
     attr_reader :path, :root
 
     def initialize(options = {})
-      @options = {
-          :semantic_error => :error,
-          :key_unknown => :error,
-          :not_yet_supported => :warning
-      }.merge(options)
     end
 
     def parse_file(path)
@@ -29,6 +24,8 @@ module RamlParser
     private
 
     def parse_root(node)
+      node.hash('schemas').mark_all(:unsupported)
+
       root = Model::Root.new
       root.title = node.hash('title').or_default('').value
       root.base_uri = node.hash('baseUri').or_default('').value
@@ -111,6 +108,7 @@ module RamlParser
 
     def parse_named_parameter(node)
       if node.value.is_a? Array
+        node.mark_all(:unsupported)
         # TODO: Not yet supported named parameters with multiple types
         return Model::NamedParameter.new(node.key)
       end
@@ -144,6 +142,8 @@ module RamlParser
     end
 
     def parse_security_scheme(node)
+      node.hash('describedBy').mark_all(:unsupported)
+
       node = node.or_default({})
       security_scheme = Model::SecurityScheme.new(node.key)
       security_scheme.type = node.hash('type').value
@@ -268,21 +268,6 @@ module RamlParser
           []
         end
       }.values.flatten
-    end
-
-    def error(type, node, message)
-      message = "#{node.path}: #{message}"
-      case @options[type]
-        when :ignore
-        when :warning
-          puts message
-        else
-          raise message
-      end
-    end
-
-    def not_yet_supported(node, what)
-      error(:not_yet_supported, node, "Not yet supported #{what}")
     end
   end
 end
