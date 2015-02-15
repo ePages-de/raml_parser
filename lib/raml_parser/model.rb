@@ -1,13 +1,14 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :media_type, :resources, :documentation
+      attr_accessor :title, :base_uri, :version, :media_type, :security_schemes, :resources, :documentation
 
-      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, resources = [], documentation = [])
+      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, security_schemes = {}, resources = [], documentation = [])
         @title = title
         @base_uri = base_uri
         @version = version
         @media_type = media_type
+        @security_schemes = security_schemes
         @resources = resources
         @documentation = documentation
       end
@@ -120,6 +121,18 @@ module RamlParser
       def initialize(title = nil, content = nil)
         @title = title
         @content = content
+      end
+    end
+
+    class SecurityScheme
+      attr_accessor :name, :type, :description, :described_by, :settings
+
+      def initialize(name, type = nil, description = nil, described_by = nil, settings = {})
+        @name = name
+        @type = type
+        @description = description
+        @described_by = described_by
+        @settings = settings
       end
     end
   end

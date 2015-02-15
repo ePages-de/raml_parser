@@ -39,10 +39,10 @@ module RamlParser
             n.each { |n2| n2.each { |n3| @traits[n3.key] = n3 } }
           when 'resourceTypes'
             n.each { |n2| n2.each { |n3| @resource_types[n3.key] = n3 } }
+          when 'securitySchemes'
+            n.each { |n2| n2.each { |n3| root.security_schemes[n3.key] = parse_security_scheme(n3) } }
           when 'documentation'
             root.documentation += n.map { |n2| parse_documenation(n2) }
-          when 'securitySchemes'
-            not_yet_supported(node, n.key)
           when 'securedBy'
             not_yet_supported(node, n.key)
           when 'mediaType'
@@ -252,6 +252,27 @@ module RamlParser
       end
 
       body
+    end
+
+    def parse_security_scheme(node)
+      security_scheme = Model::SecurityScheme.new(node.key)
+
+      node.each do |n|
+        case n.key
+          when 'type'
+            security_scheme.type = n.value
+          when 'description'
+            security_scheme.description = n.value
+          when 'describedBy'
+            security_scheme.described_by = parse_method(n, nil, true)
+          when 'settings'
+            security_scheme.settings = n.value
+          else
+            error(:key_unknown, node, n.key)
+        end
+      end
+
+      security_scheme
     end
 
     def parse_documenation(node)

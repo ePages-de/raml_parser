@@ -77,6 +77,14 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['to'].description).to eq 'TO2'
   end
 
+  it 'parses security schemes' do
+    raml = RamlParser::Parser.new('spec/examples/raml/securityschemes.raml', all_errors).root
+    expect(raml.security_schemes.keys).to eq ['oauth_2_0', 'oauth_1_0', 'customHeader']
+    expect(raml.security_schemes['oauth_2_0'].type).to eq 'OAuth 2.0'
+    expect(raml.security_schemes['oauth_1_0'].type).to eq 'OAuth 1.0'
+    expect(raml.security_schemes['customHeader'].type).to eq nil
+  end
+
   it 'parses documentation' do
     raml = RamlParser::Parser.new('spec/examples/raml/documentation.raml', all_errors).root
     expect(raml.documentation[0].title).to eq 'Home'
