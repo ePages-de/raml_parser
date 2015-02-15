@@ -18,6 +18,14 @@ module RamlParser
       parse_root(node)
     end
 
+    def parse_file_with_marks(path)
+      node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
+      node.mark_all(:unused)
+      node.mark(:used)
+      root = parse_root(node)
+      { :root => root, :marks => node.marks }
+    end
+
     private
 
     def parse_root(node)
@@ -26,11 +34,11 @@ module RamlParser
       root.base_uri = node.hash('baseUri').or_default('').value
       root.version = node.hash('version').value
       root.media_type = node.hash('mediaType').value
-      root.secured_by = node.hash('securedBy').or_default([]).value
+      root.secured_by = node.hash('securedBy').or_default([]).array_map { |n| n.value }
       root.documentation = node.hash('documentation').array_map { |n| parse_documenation(n) }
       root.security_schemes = node.hash('securitySchemes').arrayhash_map { |n| parse_security_scheme(n) }
-      root.resource_types = node.hash('resourceTypes').arrayhash_map { |n| n }
-      root.traits = node.hash('traits').arrayhash_map { |n| n }
+      root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_map { |n| n }
+      root.traits = node.hash('traits').mark_all(:used).arrayhash_map { |n| n }
 
       root.resources = traverse_resources(node, nil) do |n,parent|
         parent_absolute_uri = parent != nil ? parent.absolute_uri : root.base_uri || ''
@@ -55,7 +63,7 @@ module RamlParser
       resource.uri_parameters = extract_uri_parameters(node.key).merge(parent_uri_parameters.merge(node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }))
       resource.type = parse_type(node.hash('type'))
       resource.is = parse_is(node.hash('is'))
-      resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).value).uniq
+      resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq
 
       for m in %w(get post put delete head patch options trace connect) do
         if node.value.has_key? m
@@ -80,7 +88,7 @@ module RamlParser
       method.bodies = node.hash('body').hash_map { |n| parse_body(n) }
       method.responses = node.hash('responses').hash_map { |n| parse_response(n) }
       method.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
-      method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).value).uniq if resource
+      method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq if resource
       method.is = parse_is(node.hash('is'))
 
       unless as_trait
@@ -103,7 +111,7 @@ module RamlParser
 
     def parse_named_parameter(node)
       if node.value.is_a? Array
-        not_yet_supported(node, 'Named parameters with multiple types')
+        # TODO: Not yet supported named parameters with multiple types
         return Model::NamedParameter.new(node.key)
       end
 
@@ -120,7 +128,7 @@ module RamlParser
       named_parameter.minimum = node.hash('minimum').value
       named_parameter.maximum = node.hash('maximum').value
       named_parameter.repeat = node.hash('repeat').value
-      named_parameter.enum = node.hash('enum').value
+      named_parameter.enum = node.hash('enum').or_default([]).array_map { |n| n.value }
       named_parameter.pattern = node.hash('pattern').value
       named_parameter
     end
@@ -141,7 +149,7 @@ module RamlParser
       security_scheme.type = node.hash('type').value
       security_scheme.description = node.hash('description').value
       security_scheme.described_by = node.hash('describedBy').value
-      security_scheme.settings = node.hash('settings').value
+      security_scheme.settings = node.hash('settings').mark_all(:used).value
       security_scheme
     end
 
@@ -154,7 +162,7 @@ module RamlParser
     end
 
     def parse_type(node)
-      node = node.or_default({})
+      node = node.or_default({}).mark_all(:used)
       result = {}
       if node.value.is_a? String
         result = { node.value => nil }
@@ -167,7 +175,7 @@ module RamlParser
     end
 
     def parse_is(node)
-      node = node.or_default({})
+      node = node.or_default({}).mark_all(:used)
       result = {}
       node.value.each { |n|
         if n.is_a? String

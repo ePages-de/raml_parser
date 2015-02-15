@@ -186,8 +186,22 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['post'].description).to eq 'Sing password'
   end
 
-  it 'does not fail on any example RAML file' do
+  it 'detect unused stuff' do
+    files = Dir.glob('spec/examples/raml/**/*.raml')
+    files.each { |f|
+      def is_known_unused(path)
+        known = %w(describedBy schemas multipart/form-data)
+        known.any? { |k| path.include? ".#{k}"}
+      end
 
+      temp = parser2.parse_file_with_marks(f)
+      unused = temp[:marks].select { |_,m| m == :unused }
+      expect(unused.select { |p,_| not is_known_unused(p) }.length).to eq 0
+    }
+
+  end
+
+  it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     files.each { |f|
       parser2.parse_file(f)
