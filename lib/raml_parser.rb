@@ -21,7 +21,7 @@ module RamlParser
     private
 
     def self.parse_root(node)
-      node.hash('schemas').mark_all(:unsupported)
+      node.hash('schemas').mark_all(:unsupported) if node.value.has_key? 'schemas'
 
       root = Model::Root.new
       root.title = node.hash('title').or_default('').value
@@ -139,7 +139,7 @@ module RamlParser
     end
 
     def self.parse_security_scheme(node)
-      node.hash('describedBy').mark_all(:unsupported)
+      node.hash('describedBy').mark_all(:unsupported) if node.value.has_key? 'describedBy'
 
       node = node.or_default({})
       security_scheme = Model::SecurityScheme.new(node.key)
