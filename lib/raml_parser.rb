@@ -5,15 +5,12 @@ module RamlParser
   class Parser
     attr_reader :path, :root
 
-    def initialize(options = {})
-    end
-
-    def parse_file(path)
+    def self.parse_file(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
       parse_root(node)
     end
 
-    def parse_file_with_marks(path)
+    def self.parse_file_with_marks(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
       node.mark_all(:unused)
       node.mark(:used)
@@ -23,7 +20,7 @@ module RamlParser
 
     private
 
-    def parse_root(node)
+    def self.parse_root(node)
       node.hash('schemas').mark_all(:unsupported)
 
       root = Model::Root.new
@@ -47,8 +44,8 @@ module RamlParser
       root
     end
 
-    def parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
-      def extract_uri_parameters(relative_uri)
+    def self.parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
+      def self.extract_uri_parameters(relative_uri)
         names = relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
         Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
       end
@@ -76,7 +73,7 @@ module RamlParser
       resource
     end
 
-    def parse_method(node, root, resource, as_trait)
+    def self.parse_method(node, root, resource, as_trait)
       node = node.or_default({})
       method = Model::Method.new(node.key.upcase)
       method.display_name = node.hash('displayName').value
@@ -96,7 +93,7 @@ module RamlParser
       method
     end
 
-    def parse_response(node)
+    def self.parse_response(node)
       node = node.or_default({})
       response = Model::Response.new(node.key)
       response.display_name = node.hash('displayName').value
@@ -106,7 +103,7 @@ module RamlParser
       response
     end
 
-    def parse_named_parameter(node)
+    def self.parse_named_parameter(node)
       if node.value.is_a? Array
         node.mark_all(:unsupported)
         # TODO: Not yet supported named parameters with multiple types
@@ -131,7 +128,7 @@ module RamlParser
       named_parameter
     end
 
-    def parse_body(node)
+    def self.parse_body(node)
       node = node.or_default({})
       body = Model::Body.new(node.key)
       body.example = node.hash('example').value
@@ -141,7 +138,7 @@ module RamlParser
       body
     end
 
-    def parse_security_scheme(node)
+    def self.parse_security_scheme(node)
       node.hash('describedBy').mark_all(:unsupported)
 
       node = node.or_default({})
@@ -153,7 +150,7 @@ module RamlParser
       security_scheme
     end
 
-    def parse_documenation(node)
+    def self.parse_documenation(node)
       node = node.or_default({})
       documentation = Model::Documentation.new
       documentation.title = node.hash('title').value
@@ -161,7 +158,7 @@ module RamlParser
       documentation
     end
 
-    def parse_type(node)
+    def self.parse_type(node)
       node = node.or_default({}).mark_all(:used)
       result = {}
       if node.value.is_a? String
@@ -174,7 +171,7 @@ module RamlParser
       result
     end
 
-    def parse_is(node)
+    def self.parse_is(node)
       node = node.or_default({}).mark_all(:used)
       result = {}
       node.value.each { |n|
@@ -189,7 +186,7 @@ module RamlParser
       result
     end
 
-    def mixin_resource_types(node, root, resource)
+    def self.mixin_resource_types(node, root, resource)
       result = Model::Resource.new(nil, nil)
       resource.type.each do |name,value|
         params = (value || {}).merge({
@@ -207,7 +204,7 @@ module RamlParser
       Model::Resource.merge(result, resource)
     end
 
-    def mixin_traits(node, root, method, resource)
+    def self.mixin_traits(node, root, method, resource)
       result = Model::Method.new(nil)
       (resource.is.merge(method.is)).each do |name,value|
         params = (value || {}).merge({
@@ -226,10 +223,10 @@ module RamlParser
       Model::Method.merge(result, method)
     end
 
-    def resolve_parametrization(node, params)
+    def self.resolve_parametrization(node, params)
       require 'active_support/core_ext/string/inflections'
 
-      def alter_string(str, params, node)
+      def self.alter_string(str, params, node)
         str.gsub(/<<([a-zA-Z]+)(\s*\|\s*!([a-zA-Z_\-]+))?>>/) do |a,b|
           case $3
             when nil
@@ -244,7 +241,7 @@ module RamlParser
         end
       end
 
-      def traverse(raw, params, node)
+      def self.traverse(raw, params, node)
         if raw.is_a? Hash
           Hash[raw.map { |k,v| [traverse(k, params, node), traverse(v, params, node)] }]
         elsif raw.is_a? Array
@@ -259,7 +256,7 @@ module RamlParser
       YamlNode.new(node.parent, node.key, traverse(node.value, params, node))
     end
 
-    def traverse_resources(node, parent_resource, &code)
+    def self.traverse_resources(node, parent_resource, &code)
       node.hash_map { |n|
         if n.key =~ /^\//
           resource = code.call(n, parent_resource)
