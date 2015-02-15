@@ -34,7 +34,9 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[2].uri_parameters.map { |_,param| param.name }).to eq ['first', 'second']
     expect(raml.resources[3].uri_parameters.map { |_,param| param.name }).to eq ['third']
     expect(raml.resources[2].uri_parameters['first'].display_name).to eq 'first'
+    expect(raml.resources[2].uri_parameters['first'].type).to eq 'string'
     expect(raml.resources[2].uri_parameters['second'].display_name).to eq 'This is the second uri parameter'
+    expect(raml.resources[2].uri_parameters['second'].type).to eq 'integer'
   end
 
   it 'parses query parameters' do
@@ -44,7 +46,9 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q2']
     expect(raml.resources[1].methods['get'].query_parameters.map { |_,param| param.name }).to eq ['q2']
     expect(raml.resources[0].methods['get'].query_parameters['q1'].display_name).to eq 'q1'
+    expect(raml.resources[0].methods['get'].query_parameters['q1'].type).to eq 'string'
     expect(raml.resources[1].methods['get'].query_parameters['q2'].display_name).to eq 'This is the second query parameter'
+    expect(raml.resources[1].methods['get'].query_parameters['q2'].type).to eq 'integer'
   end
 
   it 'parses responses' do
