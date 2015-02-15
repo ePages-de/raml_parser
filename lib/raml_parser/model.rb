@@ -1,14 +1,15 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :media_type, :resources
+      attr_accessor :title, :base_uri, :version, :media_type, :resources, :documentation
 
-      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, resources = [])
+      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, resources = [], documentation = [])
         @title = title
         @base_uri = base_uri
         @version = version
         @media_type = media_type
         @resources = resources
+        @documentation = documentation
       end
     end
 
@@ -110,6 +111,15 @@ module RamlParser
         @repeat = repeat
         @enum = enum
         @pattern = pattern
+      end
+    end
+
+    class Documentation
+      attr_accessor :title, :content
+
+      def initialize(title = nil, content = nil)
+        @title = title
+        @content = content
       end
     end
   end

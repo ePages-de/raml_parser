@@ -40,7 +40,7 @@ module RamlParser
           when 'resourceTypes'
             n.each { |n2| n2.each { |n3| @resource_types[n3.key] = n3 } }
           when 'documentation'
-            not_yet_supported(node, n.key)
+            root.documentation += n.map { |n2| parse_documenation(n2) }
           when 'securitySchemes'
             not_yet_supported(node, n.key)
           when 'securedBy'
@@ -252,6 +252,23 @@ module RamlParser
       end
 
       body
+    end
+
+    def parse_documenation(node)
+      documentation = Model::Documentation.new
+
+      node.each do |n|
+        case n.key
+          when 'title'
+            documentation.title = n.value
+          when 'content'
+            documentation.content = n.value
+          else
+            error(:key_unknown, node, n.key)
+        end
+      end
+
+      documentation
     end
 
     def parse_type(node)

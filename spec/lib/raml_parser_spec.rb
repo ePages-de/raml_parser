@@ -77,6 +77,12 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[1].methods['post'].bodies['multipart/form-data'].form_parameters['to'].description).to eq 'TO2'
   end
 
+  it 'parses documentation' do
+    raml = RamlParser::Parser.new('spec/examples/raml/documentation.raml', all_errors).root
+    expect(raml.documentation[0].title).to eq 'Home'
+    expect(raml.documentation[1].title).to eq 'FAQ'
+  end
+
   it 'mixes in traits' do
     raml = RamlParser::Parser.new('spec/examples/raml/traits.raml', all_errors).root
     expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
