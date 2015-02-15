@@ -25,6 +25,7 @@ TODO: Write usage instructions here
 
 These are features of the RAML 0.8 specification that are not fully handled yet. This list should be complete, i.e. everything not listed here should work.
 
+* [Base URI Parameters](http://raml.org/spec.html#base-uri-parameters)
 * [Security](http://raml.org/spec.html#security)
 * [Schemas](http://raml.org/spec.html#schemas)
 * [Protocols](http://raml.org/spec.html#protocols)
