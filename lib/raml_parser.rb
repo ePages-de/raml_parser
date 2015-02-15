@@ -46,7 +46,7 @@ module RamlParser
           when 'securedBy'
             not_yet_supported(node, n.key)
           when 'mediaType'
-            not_yet_supported(node, n.key)
+            root.media_type = n.value
           when 'schemas'
             not_yet_supported(node, n.key)
           when 'baseUriParameters'

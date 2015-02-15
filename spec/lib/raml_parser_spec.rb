@@ -24,6 +24,7 @@ RSpec.describe RamlParser::Parser do
     expect(raml.title).to eq 'Example API'
     expect(raml.base_uri).to eq 'http://localhost:3000'
     expect(raml.version).to eq 'v123'
+    expect(raml.media_type).to eq 'application/json'
   end
 
   it 'parses URI parameters' do

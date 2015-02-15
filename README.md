@@ -29,7 +29,6 @@ These are features of the RAML 0.8 specification that are not fully handled yet.
 * [Security](http://raml.org/spec.html#security)
 * [Schemas](http://raml.org/spec.html#schemas)
 * [Protocols](http://raml.org/spec.html#protocols)
-* [Default Media Type](http://raml.org/spec.html#default-media-type)
 * [Named parameters with multiple types](http://raml.org/spec.html#named-parameters-with-multiple-types)
 
 ## Contributing
