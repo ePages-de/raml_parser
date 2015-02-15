@@ -14,7 +14,7 @@ module RamlParser
       }.merge(options)
       @traits = {}
       @resource_types = {}
-      @root = parse_file(@path)
+      parse_file(@path)
     end
 
     private
@@ -25,28 +25,28 @@ module RamlParser
     end
 
     def parse_root(node)
-      root = Model::Root.new
+      @root = Model::Root.new
 
       node.each do |n|
         case n.key
           when 'title'
-            root.title = n.value
+            @root.title = n.value
           when 'baseUri'
-            root.base_uri = n.value
+            @root.base_uri = n.value
           when 'version'
-            root.version = n.value
+            @root.version = n.value
           when 'traits'
             n.each { |n2| n2.each { |n3| @traits[n3.key] = n3 } }
           when 'resourceTypes'
             n.each { |n2| n2.each { |n3| @resource_types[n3.key] = n3 } }
           when 'securitySchemes'
-            n.each { |n2| n2.each { |n3| root.security_schemes[n3.key] = parse_security_scheme(n3) } }
+            n.each { |n2| n2.each { |n3| @root.security_schemes[n3.key] = parse_security_scheme(n3) } }
           when 'documentation'
-            root.documentation += n.map { |n2| parse_documenation(n2) }
+            @root.documentation += n.map { |n2| parse_documenation(n2) }
           when 'securedBy'
-            not_yet_supported(node, n.key)
+            @root.secured_by = n.value
           when 'mediaType'
-            root.media_type = n.value
+            @root.media_type = n.value
           when 'schemas'
             not_yet_supported(node, n.key)
           when 'baseUriParameters'
@@ -60,8 +60,8 @@ module RamlParser
         end
       end
 
-      root.resources = find_resource_nodes(node).map do |n|
-        parent_absolute_uri = n.parent.data != nil ? n.parent.data.absolute_uri : root.base_uri || ''
+      @root.resources = find_resource_nodes(node).map do |n|
+        parent_absolute_uri = n.parent.data != nil ? n.parent.data.absolute_uri : @root.base_uri || ''
         parent_relative_uri = n.parent.data != nil ? n.parent.data.relative_uri : ''
         parent_uri_parameters = n.parent.data != nil ? n.parent.data.uri_parameters.clone : {}
         resource = parse_resource(n, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, false)
@@ -73,13 +73,12 @@ module RamlParser
 
         resource
       end
-
-      root
     end
 
     def parse_resource(node, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
-      resource.uri_parameters = parent_uri_parameters
+      resource.uri_parameters = parent_uri_parameters unless as_resource_type
+      resource.secured_by = @root.secured_by.clone unless as_resource_type
 
       node.each { |n|
         case n.key
@@ -94,7 +93,7 @@ module RamlParser
           when 'is'
             resource.is = resource.is.merge(parse_is(n))
           when 'securedBy'
-            not_yet_supported(node, n.key)
+            resource.secured_by = (resource.secured_by + n.value).uniq
           when 'usage'
             unless as_resource_type
               error(:key_unknown, node, n.key)
@@ -125,6 +124,7 @@ module RamlParser
 
     def parse_method(node, resource, as_trait)
       method = Model::Method.new(node.key.upcase)
+      method.secured_by = resource.secured_by.clone unless as_trait
 
       node.each { |n|
         case n.key
@@ -141,7 +141,7 @@ module RamlParser
           when 'is'
             method.is = method.is.merge(parse_is(n))
           when 'securedBy'
-            not_yet_supported(node, n.key)
+            method.secured_by = (method.secured_by + n.value).uniq
           when 'headers'
             n.each { |n2| method.headers[n2.key] = parse_named_parameter(n2) }
           else

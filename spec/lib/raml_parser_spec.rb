@@ -91,6 +91,20 @@ RSpec.describe RamlParser::Parser do
     expect(raml.documentation[1].title).to eq 'FAQ'
   end
 
+  it 'handle secured by' do
+    raml1 = RamlParser::Parser.new('spec/examples/raml/securedby1.raml', all_errors).root
+    expect(raml1.resources[0].methods['get'].secured_by).to eq ['oauth_1_0']
+    expect(raml1.resources[0].methods['post'].secured_by).to eq ['oauth_2_0']
+    expect(raml1.resources[1].methods['get'].secured_by).to eq ['oauth_1_0', nil, 'oauth_2_0']
+    expect(raml1.resources[1].methods['post'].secured_by).to eq ['oauth_1_0', 'oauth_2_0']
+
+    raml2 = RamlParser::Parser.new('spec/examples/raml/securedby2.raml', all_errors).root
+    expect(raml2.resources[0].methods['get'].secured_by).to eq ['oauth_2_0', 'oauth_1_0']
+    expect(raml2.resources[0].methods['post'].secured_by).to eq ['oauth_2_0']
+    expect(raml2.resources[1].methods['get'].secured_by).to eq ['oauth_2_0', 'oauth_1_0', nil]
+    expect(raml2.resources[1].methods['post'].secured_by).to eq ['oauth_2_0', 'oauth_1_0']
+  end
+
   it 'mixes in traits' do
     raml = RamlParser::Parser.new('spec/examples/raml/traits.raml', all_errors).root
     expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
