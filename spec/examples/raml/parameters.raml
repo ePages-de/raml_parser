@@ -1,0 +1,21 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+traits:
+  - first:
+      description: <<resourcePath>> and <<resourcePathName>> and <<methodName>> and <<fooBar>>
+      queryParameters:
+        <<methodName>>:
+          description: Applepie
+resourceTypes:
+  - second:
+      description: <<resourcePath>> and <<resourcePathName>> and <<applePie>>
+/first:
+  get:
+    is: [ first: { fooBar: Hello } ]
+/second:
+  type: { second: { applePie: World } }
+/third:
+  /fourth:
+    type: { second: { applePie: Finish } }

@@ -162,6 +162,16 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[0].methods['post'].method).to eq 'POST'
   end
 
+  it 'handles parametrization of traits and resource types' do
+    parser = RamlParser::Parser.new(all_errors)
+    raml = parser.parse_file('spec/examples/raml/parameters.raml')
+
+    expect(raml.resources[0].methods['get'].description).to eq '/first and first and get and Hello'
+    expect(raml.resources[0].methods['get'].query_parameters['get'].description).to eq 'Applepie'
+    expect(raml.resources[1].description).to eq '/second and second and World'
+    expect(raml.resources[3].description).to eq '/third/fourth and fourth and Finish'
+  end
+
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     parser = RamlParser::Parser.new({ :not_yet_supported => :warning })
