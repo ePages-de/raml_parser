@@ -166,7 +166,7 @@ module RamlParser
       elsif node.value.is_a? Hash
         result = node.value
       else
-        error(:semantic_error, node, 'Invalid type format')
+        raise "Invalid syntax for 'type' property at #{node.path}"
       end
       result
     end
@@ -180,7 +180,7 @@ module RamlParser
         elsif n.is_a? Hash
           result = result.merge(n)
         else
-          error(:key_unknown, node, 'Invalid is format')
+          raise "Invalid syntax for 'is' property at #{node.path}"
         end
       }
       result
@@ -197,7 +197,7 @@ module RamlParser
         if resource_type != nil
           result = Model::Resource.merge(result, resource_type)
         else
-          error(:key_unknown, node, "Importing unknown resource type #{name}")
+          raise "Referencing unknown resource type #{name} at #{node.path}"
         end
       end
 
@@ -216,7 +216,7 @@ module RamlParser
         if trait != nil
           result = Model::Method.merge(result, trait)
         else
-          error(:key_unknown, node, "Importing unknown trait #{name}")
+          raise "Referencing unknown trait #{name} at #{node.path}"
         end
       end
 
@@ -236,7 +236,7 @@ module RamlParser
             when 'pluralize'
               params[$1].to_s.pluralize
             else
-              error(:key_unknown, node, "Unknown parameter pipe function '#{$3}'")
+              raise "Using unknown parametrization function #{$3} at #{node.path}"
           end
         end
       end
