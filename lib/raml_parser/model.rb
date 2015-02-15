@@ -16,7 +16,7 @@ module RamlParser
     class Resource
       attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :type, :is
 
-      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, type = {}, is = [])
+      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, type = {}, is = {})
         @absolute_uri = absolute_uri
         @relative_uri = relative_uri
         @display_name = display_name
@@ -35,7 +35,7 @@ module RamlParser
         resource.uri_parameters = a.uri_parameters.merge(b.uri_parameters)
         resource.methods = a.methods.merge(b.methods)
         resource.type = a.type.merge(b.type)
-        resource.is = (a.is + b.is).uniq
+        resource.is = a.is.merge(b.is)
 
         resource
       end
@@ -44,7 +44,7 @@ module RamlParser
     class Method
       attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :headers, :is
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = [])
+      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {})
         @method = method
         @display_name = display_name
         @description = description
@@ -64,7 +64,7 @@ module RamlParser
         method.responses = a.responses.merge(b.responses)
         method.bodies = a.bodies.merge(b.bodies)
         method.headers = a.headers.merge(b.headers)
-        method.is = (a.is + b.is).uniq
+        method.is = a.is.merge(b.is)
 
         method
       end
