@@ -17,11 +17,13 @@ module RamlParser
 
   class YamlNode
     attr_reader :parent, :key, :value
+    attr_accessor :data
 
-    def initialize(parent, key, value)
+    def initialize(parent, key, value, data = nil)
       @parent = parent
       @key = key
       @value = value
+      @data = nil
     end
 
     def root

@@ -1,0 +1,16 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+resourceTypes:
+  - collection:
+      description: A collection
+      get:
+        description: Get all items
+      post:
+        description: Create a new item
+/a:
+  type: collection
+  put:
+  post:
+    description: Overriden

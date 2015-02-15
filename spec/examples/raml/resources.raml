@@ -6,6 +6,10 @@ baseUri: http://localhost:3000
   get:
   /second:
 /third:
+  displayName: This is the third
 /with:
   /{uri}:
     /{params}:
+      uriParameters:
+        params:
+          displayName: This are the params

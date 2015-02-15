@@ -1,0 +1,21 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+traits:
+  - keep:
+      description: Keep <<resourcePathName>>
+  - sing:
+      description: Sing <<resourcePathName | !singularize>>
+  - plu:
+      description: Plu <<resourcePathName | !pluralize>>
+/userName:
+  get:
+    is: [ keep ]
+  post:
+    is: [ plu ]
+/passwords:
+  get:
+    is: [ keep ]
+  post:
+    is: [ sing ]

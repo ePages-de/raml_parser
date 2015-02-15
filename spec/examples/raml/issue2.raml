@@ -1,0 +1,51 @@
+#%RAML 0.8
+---
+title: GitHub API
+baseUri: https://api.github.com
+version: v3
+traits:
+  - base:
+      responses:
+        404:
+          description: Not found
+          body:
+            application/json:
+              example: |
+                {
+                  "status_code": 404,
+                  "message": "Not found"
+                }
+        500:
+          description: Internal server error
+          body:
+            application/json:
+              example: |
+                {
+                  "status_code": 500,
+                  "message": "Internal server error"
+                }
+resourceTypes:
+  - collection:
+      post:
+        responses:
+          404:
+            description: Not found
+            body:
+              application/json:
+                example: |
+                  {
+                    "status_code": 404,
+                    "message": "Not found"
+                  }
+          500:
+            description: Internal server error
+            body:
+              application/json:
+                example: |
+                  {
+                    "status_code": 500,
+                    "message": "Internal server error"
+                  }
+/users/{username}:
+  type: collection
+  get:
