@@ -3,14 +3,14 @@ require 'raml_parser/model'
 
 module RamlParser
   class Parser
-    attr_reader :path, :root
-
     def self.parse_file(path)
+      ensure_raml_0_8(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
       parse_root(node)
     end
 
     def self.parse_file_with_marks(path)
+      ensure_raml_0_8(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
       node.mark_all(:unused)
       node.mark(:used)
@@ -20,19 +20,27 @@ module RamlParser
 
     private
 
-    def self.parse_root(node)
-      node.hash('schemas').mark_all(:unsupported) if node.value.has_key? 'schemas'
+    def self.ensure_raml_0_8(path)
+      first_line = File.open(path) { |f| f.readline }.strip
+      raise "File #{path} does not start with RAML 0.8 comment" unless first_line == '#%RAML 0.8'
+    end
 
+    def self.parse_root(node)
       root = Model::Root.new
       root.title = node.hash('title').or_default('').value
-      root.base_uri = node.hash('baseUri').or_default('').value
       root.version = node.hash('version').value
+      root.base_uri = node.hash('baseUri').or_default('').value.gsub('{version}', root.version || '')
       root.media_type = node.hash('mediaType').value
       root.secured_by = node.hash('securedBy').or_default([]).array_map { |n| n.value }
       root.documentation = node.hash('documentation').array_map { |n| parse_documenation(n) }
+      root.schemas = node.hash('schemas').arrayhash_map { |n| n.value }
       root.security_schemes = node.hash('securitySchemes').arrayhash_map { |n| parse_security_scheme(n) }
       root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_map { |n| n }
       root.traits = node.hash('traits').mark_all(:used).arrayhash_map { |n| n }
+
+      implicit_base_uri_parameters = extract_uri_parameters(root.base_uri)
+      explicit_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
+      root.base_uri_parameters = implicit_base_uri_parameters.merge(explicit_base_uri_parameters)
 
       root.resources = traverse_resources(node, nil) do |n,parent|
         parent_absolute_uri = parent != nil ? parent.absolute_uri : root.base_uri || ''
@@ -45,25 +53,23 @@ module RamlParser
     end
 
     def self.parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
-      def self.extract_uri_parameters(relative_uri)
-        names = relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
-        Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
-      end
-
       node = node.or_default({})
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.display_name = node.hash('displayName').value
       resource.description = node.hash('description').value
-      resource.uri_parameters = extract_uri_parameters(node.key).merge(parent_uri_parameters.merge(node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }))
       resource.type = parse_type(node.hash('type'))
       resource.is = parse_is(node.hash('is'))
       resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq
+      resource.methods = Hash[find_method_nodes(node).map { |n| [n.key, parse_method(n, root, resource, as_resource_type)] }]
 
-      for m in %w(get post put delete head patch options trace connect) do
-        if node.value.has_key? m
-          resource.methods[m] = parse_method(node.hash(m), root, resource, as_resource_type)
-        end
-      end
+      root_base_uri_parameters = root.base_uri_parameters
+      own_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
+      resource.base_uri_parameters = root_base_uri_parameters.merge(own_base_uri_parameters)
+
+      implicit_uri_parameters = extract_uri_parameters(node.key)
+      explicit_uri_parameters = node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }
+      raise 'Can only explicitly specify URI parameters from the current relative URI' unless as_resource_type or (explicit_uri_parameters.keys - implicit_uri_parameters.keys).empty?
+      resource.uri_parameters = parent_uri_parameters.merge(implicit_uri_parameters).merge(explicit_uri_parameters)
 
       unless as_resource_type
         resource = mixin_resource_types(node, root, resource)
@@ -79,8 +85,8 @@ module RamlParser
       method.display_name = node.hash('displayName').value
       method.description = node.hash('description').value
       method.query_parameters = node.hash('queryParameters').hash_map { |n| parse_named_parameter(n) }
-      method.bodies = node.hash('body').hash_map { |n| parse_body(n) }
-      method.responses = node.hash('responses').hash_map { |n| parse_response(n) }
+      method.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
+      method.responses = node.hash('responses').hash_map { |n| parse_response(n, root) }
       method.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
       method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq if resource
       method.is = parse_is(node.hash('is'))
@@ -93,12 +99,12 @@ module RamlParser
       method
     end
 
-    def self.parse_response(node)
+    def self.parse_response(node, root)
       node = node.or_default({})
       response = Model::Response.new(node.key)
       response.display_name = node.hash('displayName').value
       response.description = node.hash('description').value
-      response.bodies = node.hash('body').hash_map { |n| parse_body(n) }
+      response.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
       response.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
       response
     end
@@ -128,24 +134,23 @@ module RamlParser
       named_parameter
     end
 
-    def self.parse_body(node)
+    def self.parse_body(node, root)
       node = node.or_default({})
       body = Model::Body.new(node.key)
       body.example = node.hash('example').value
       body.schema = node.hash('schema').value
+      body.schema = root.schemas[body.schema] if root.schemas.has_key? body.schema
       body.form_parameters = node.hash('formParameters').hash_map { |n| parse_named_parameter(n) }
       # TODO: Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data
       body
     end
 
     def self.parse_security_scheme(node)
-      node.hash('describedBy').mark_all(:unsupported) if node.value.has_key? 'describedBy'
-
       node = node.or_default({})
       security_scheme = Model::SecurityScheme.new(node.key)
       security_scheme.type = node.hash('type').value
       security_scheme.description = node.hash('description').value
-      security_scheme.described_by = node.hash('describedBy').value
+      security_scheme.described_by = parse_method(node.hash('describedBy'), nil, nil, true)
       security_scheme.settings = node.hash('settings').mark_all(:used).value
       security_scheme
     end
@@ -256,15 +261,30 @@ module RamlParser
       YamlNode.new(node.parent, node.key, traverse(node.value, params, node))
     end
 
+    def self.find_resource_nodes(node)
+      def self.is_resource(key)
+        key =~ /^\//
+      end
+      (node.value || {}).select { |k,_| is_resource(k) }.map { |k,_| node.hash(k) }
+    end
+
+    def self.find_method_nodes(node)
+      def self.is_method(key)
+        %w(get post put delete head patch options trace connect).include? key
+      end
+      (node.value || {}).select { |k,_| is_method(k) }.map { |k,_| node.hash(k) }
+    end
+
+    def self.extract_uri_parameters(uri)
+      names = uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
+      Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
+    end
+
     def self.traverse_resources(node, parent_resource, &code)
-      node.hash_map { |n|
-        if n.key =~ /^\//
-          resource = code.call(n, parent_resource)
-          [resource] + traverse_resources(n, resource, &code)
-        else
-          []
-        end
-      }.values.flatten
+      find_resource_nodes(node).map { |n|
+        resource = code.call(n, parent_resource)
+        [resource] + traverse_resources(n, resource, &code)
+      }.flatten
     end
   end
 end

@@ -25,7 +25,7 @@ RSpec.describe RamlParser::Parser do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/uriparameters.raml')
     expect(raml.resources[0].uri_parameters.map { |_,param| param.name }).to eq []
     expect(raml.resources[1].uri_parameters.map { |_,param| param.name }).to eq ['first']
-    expect(raml.resources[2].uri_parameters.map { |_,param| param.name }).to eq ['second', 'first']
+    expect(raml.resources[2].uri_parameters.map { |_,param| param.name }).to eq ['first', 'second']
     expect(raml.resources[3].uri_parameters.map { |_,param| param.name }).to eq ['third']
     expect(raml.resources[2].uri_parameters['first'].display_name).to eq 'first'
     expect(raml.resources[2].uri_parameters['first'].type).to eq 'string'
@@ -89,12 +89,42 @@ RSpec.describe RamlParser::Parser do
     expect(raml.security_schemes['oauth_2_0'].type).to eq 'OAuth 2.0'
     expect(raml.security_schemes['oauth_1_0'].type).to eq 'OAuth 1.0'
     expect(raml.security_schemes['customHeader'].type).to eq nil
+
+    expect(raml.security_schemes['oauth_2_0'].settings['authorizationUri']).to eq 'https://www.dropbox.com/1/oauth2/authorize'
+    expect(raml.security_schemes['oauth_2_0'].described_by.headers['Authorization'].description).to start_with 'Used to send'
   end
 
   it 'parses documentation' do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/documentation.raml')
     expect(raml.documentation[0].title).to eq 'Home'
     expect(raml.documentation[1].title).to eq 'FAQ'
+  end
+
+  it 'parses schemas' do
+    raml = RamlParser::Parser.parse_file('spec/examples/raml/schemas.raml')
+    expect(raml.schemas['schema1']).to start_with '<?xml version="1.1"?>'
+    expect(raml.schemas['schema2']).to start_with '<?xml version="1.2"?>'
+    expect(raml.resources[0].methods['get'].bodies['text/xml'].schema).to start_with '<?xml version="1.1"?>'
+    expect(raml.resources[0].methods['post'].bodies['text/xml'].schema).to start_with '<?xml version="1.2"?>'
+    expect(raml.resources[0].methods['put'].bodies['text/xml'].schema).to start_with '<?xml version="1.3"?>'
+  end
+
+  it 'parses base URI parameters' do
+    raml1 = RamlParser::Parser.parse_file('spec/examples/raml/baseuriparameters1.raml')
+    expect(raml1.resources[0].absolute_uri).to eq 'http://localhost:3000/v4/a'
+    expect(raml1.base_uri_parameters).to eq ({})
+
+    raml2 = RamlParser::Parser.parse_file('spec/examples/raml/baseuriparameters2.raml')
+    expect(raml2.base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[0].uri_parameters.map { |_,p| p.name }).to eq []
+    expect(raml2.resources[0].base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[1].uri_parameters.map { |_,p| p.name }).to eq ['next']
+    expect(raml2.resources[1].base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[2].uri_parameters.map { |_,p| p.name }).to eq ['next']
+    expect(raml2.resources[2].base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[0].base_uri_parameters['user'].description).to eq 'The user'
+    expect(raml2.resources[1].base_uri_parameters['user'].description).to eq 'The user'
+    expect(raml2.resources[2].base_uri_parameters['user'].description).to eq 'Changed'
   end
 
   it 'handle secured by' do
@@ -180,17 +210,18 @@ RSpec.describe RamlParser::Parser do
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
     files.each { |f|
-      known_unused = %w()
-      known_unsupported = %w(root.schemas .describedBy .someMultipartFormParamWithMultipleTypes)
-
       result = RamlParser::Parser.parse_file_with_marks(f)
-      unused = result[:marks].select { |_,m| m == :unused }
-      unsupported = result[:marks].select { |_,m| m == :unsupported }
-      unknown = result[:marks].select { |_,m| not [:used, :unused, :unsupported].include? m }
 
-      expect(unused.select { |p,_| not known_unused.any? { |k| p.include? k} }).to eq ({})
-      expect(unsupported.select { |p,_| not known_unsupported.any? { |k| p.include? k} }).to eq ({})
-      expect(unknown).to eq ({})
+      expect(result[:marks]).to all(satisfy do |p,m|
+        m == :used or m == :unsupported
+      end)
+    }
+  end
+
+  it 'fail on any bad example RAML file' do
+    files = Dir.glob('spec/examples/raml_bad/**/*.raml')
+    files.each { |f|
+      expect { RamlParser::Parser.parse_file_with_marks(f) }.to raise_error
     }
   end
 end

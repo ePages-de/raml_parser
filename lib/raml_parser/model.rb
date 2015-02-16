@@ -1,14 +1,16 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :media_type, :security_schemes, :resource_types, :traits, :secured_by, :documentation, :resources
+      attr_accessor :title, :base_uri, :version, :media_type, :schemas, :security_schemes, :base_uri_parameters, :resource_types, :traits, :secured_by, :documentation, :resources
 
-      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, security_schemes = {}, resource_types = {}, traits = {}, secured_by = [], documentation = [], resources = [])
+      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, schemas = {}, security_schemes = {}, base_uri_parameters = {}, resource_types = {}, traits = {}, secured_by = [], documentation = [], resources = [])
         @title = title
         @base_uri = base_uri
         @version = version
         @media_type = media_type
+        @schemas = schemas
         @security_schemes = security_schemes
+        @base_uri_parameters = base_uri_parameters
         @resource_types = resource_types
         @traits = traits
         @secured_by = secured_by
@@ -18,13 +20,14 @@ module RamlParser
     end
 
     class Resource
-      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :uri_parameters, :methods, :type, :is, :secured_by
+      attr_accessor :absolute_uri, :relative_uri, :display_name, :description, :base_uri_parameters, :uri_parameters, :methods, :type, :is, :secured_by
 
-      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, uri_parameters = {}, methods = {}, type = {}, is = {}, secured_by = [])
+      def initialize(absolute_uri, relative_uri, display_name = nil, description = nil, base_uri_parameters = {}, uri_parameters = {}, methods = {}, type = {}, is = {}, secured_by = [])
         @absolute_uri = absolute_uri
         @relative_uri = relative_uri
         @display_name = display_name
         @description = description
+        @base_uri_parameters = base_uri_parameters
         @uri_parameters = uri_parameters
         @methods = methods
         @type = type
@@ -37,6 +40,7 @@ module RamlParser
 
         resource.display_name = if b.display_name then b.display_name else a.display_name end
         resource.description = if b.description then b.description else a.description end
+        resource.base_uri_parameters = a.base_uri_parameters.merge(b.base_uri_parameters)
         resource.uri_parameters = a.uri_parameters.merge(b.uri_parameters)
         resource.methods = a.methods.merge(b.methods)
         resource.type = a.type.merge(b.type)
