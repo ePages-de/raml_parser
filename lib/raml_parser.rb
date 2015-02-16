@@ -3,8 +3,6 @@ require 'raml_parser/model'
 
 module RamlParser
   class Parser
-    attr_reader :path, :root
-
     def self.parse_file(path)
       ensure_raml_0_8(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
