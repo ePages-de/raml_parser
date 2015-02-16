@@ -127,6 +127,29 @@ RSpec.describe RamlParser::Parser do
     expect(raml2.resources[2].base_uri_parameters['user'].description).to eq 'Changed'
   end
 
+  it 'parses protocols' do
+    raml1 = RamlParser::Parser.parse_file('spec/examples/raml/protocols1.raml')
+    expect(raml1.protocols).to eq []
+    expect(raml1.resources[0].methods['get'].protocols).to eq %w()
+    expect(raml1.resources[1].methods['get'].protocols).to eq %w(HTTP HTTPS)
+    expect(raml1.resources[2].methods['get'].protocols).to eq %w(HTTP)
+    expect(raml1.resources[3].methods['get'].protocols).to eq %w(HTTPS)
+
+    raml2 = RamlParser::Parser.parse_file('spec/examples/raml/protocols2.raml')
+    expect(raml2.protocols).to eq ['HTTP']
+    expect(raml2.resources[0].methods['get'].protocols).to eq %w(HTTP)
+    expect(raml2.resources[1].methods['get'].protocols).to eq %w(HTTP HTTPS)
+    expect(raml2.resources[2].methods['get'].protocols).to eq %w(HTTP)
+    expect(raml2.resources[3].methods['get'].protocols).to eq %w(HTTPS)
+
+    raml3 = RamlParser::Parser.parse_file('spec/examples/raml/protocols3.raml')
+    expect(raml3.protocols).to eq ['HTTP', 'HTTPS']
+    expect(raml3.resources[0].methods['get'].protocols).to eq %w(HTTP HTTPS)
+    expect(raml3.resources[1].methods['get'].protocols).to eq %w(HTTP HTTPS)
+    expect(raml3.resources[2].methods['get'].protocols).to eq %w(HTTP)
+    expect(raml3.resources[3].methods['get'].protocols).to eq %w(HTTPS)
+  end
+
   it 'handle secured by' do
     raml1 = RamlParser::Parser.parse_file('spec/examples/raml/securedby1.raml')
     expect(raml1.resources[0].methods['get'].secured_by).to eq ['oauth_1_0']

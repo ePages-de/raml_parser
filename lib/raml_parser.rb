@@ -38,6 +38,10 @@ module RamlParser
       root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_map { |n| n }
       root.traits = node.hash('traits').mark_all(:used).arrayhash_map { |n| n }
 
+      implicit_protocols = (root.base_uri.scan(/^(http|https):\/\//).first || []).map { |p| p.upcase }
+      explicit_protocols = node.hash('protocols').array_map { |n| n.value }
+      root.protocols = explicit_protocols.empty? ? implicit_protocols : explicit_protocols
+
       implicit_base_uri_parameters = extract_uri_parameters(root.base_uri)
       explicit_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
       root.base_uri_parameters = implicit_base_uri_parameters.merge(explicit_base_uri_parameters)
@@ -90,6 +94,10 @@ module RamlParser
       method.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
       method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq if resource
       method.is = parse_is(node.hash('is'))
+
+      root_protocols = as_trait ? [] : root.protocols
+      explicit_protocols = node.hash('protocols').array_map { |n| n.value }
+      method.protocols = explicit_protocols.empty? ? root_protocols : explicit_protocols
 
       unless as_trait
         method = mixin_traits(node, root, method, resource)
