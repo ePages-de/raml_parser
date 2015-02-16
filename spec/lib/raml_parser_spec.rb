@@ -25,7 +25,7 @@ RSpec.describe RamlParser::Parser do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/uriparameters.raml')
     expect(raml.resources[0].uri_parameters.map { |_,param| param.name }).to eq []
     expect(raml.resources[1].uri_parameters.map { |_,param| param.name }).to eq ['first']
-    expect(raml.resources[2].uri_parameters.map { |_,param| param.name }).to eq ['second', 'first']
+    expect(raml.resources[2].uri_parameters.map { |_,param| param.name }).to eq ['first', 'second']
     expect(raml.resources[3].uri_parameters.map { |_,param| param.name }).to eq ['third']
     expect(raml.resources[2].uri_parameters['first'].display_name).to eq 'first'
     expect(raml.resources[2].uri_parameters['first'].type).to eq 'string'

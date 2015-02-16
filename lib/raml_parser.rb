@@ -49,20 +49,18 @@ module RamlParser
     end
 
     def self.parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
-      def self.extract_uri_parameters(relative_uri)
-        names = relative_uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
-        Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
-      end
-
       node = node.or_default({})
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.display_name = node.hash('displayName').value
       resource.description = node.hash('description').value
-      resource.uri_parameters = extract_uri_parameters(node.key).merge(parent_uri_parameters.merge(node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }))
       resource.type = parse_type(node.hash('type'))
       resource.is = parse_is(node.hash('is'))
       resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq
       resource.methods = Hash[find_method_nodes(node).map { |n| [n.key, parse_method(n, root, resource, as_resource_type)] }]
+
+      implicit_uri_parameters = extract_uri_parameters(node.key)
+      explicit_uri_parameters = node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }
+      resource.uri_parameters = parent_uri_parameters.merge(implicit_uri_parameters).merge(explicit_uri_parameters)
 
       unless as_resource_type
         resource = mixin_resource_types(node, root, resource)
@@ -266,6 +264,11 @@ module RamlParser
         %w(get post put delete head patch options trace connect).include? key
       end
       (node.value || {}).select { |k,_| is_method(k) }.map { |k,_| node.hash(k) }
+    end
+
+    def self.extract_uri_parameters(uri)
+      names = uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
+      Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
     end
 
     def self.traverse_resources(node, parent_resource, &code)
