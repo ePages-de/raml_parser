@@ -1,0 +1,16 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://{user}.domain.com/{version}/{language}
+version: v1
+baseUriParameters:
+  user:
+    description: The user
+/a:
+  /b/{next}:
+    uriParameters:
+      next:
+    /c:
+      baseUriParameters:
+        user:
+          description: Changed

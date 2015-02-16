@@ -112,6 +112,19 @@ RSpec.describe RamlParser::Parser do
   it 'parses base URI parameters' do
     raml1 = RamlParser::Parser.parse_file('spec/examples/raml/baseuriparameters1.raml')
     expect(raml1.resources[0].absolute_uri).to eq 'http://localhost:3000/v4/a'
+    expect(raml1.base_uri_parameters).to eq ({})
+
+    raml2 = RamlParser::Parser.parse_file('spec/examples/raml/baseuriparameters2.raml')
+    expect(raml2.base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[0].uri_parameters.map { |_,p| p.name }).to eq []
+    expect(raml2.resources[0].base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[1].uri_parameters.map { |_,p| p.name }).to eq ['next']
+    expect(raml2.resources[1].base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[2].uri_parameters.map { |_,p| p.name }).to eq ['next']
+    expect(raml2.resources[2].base_uri_parameters.map { |_,p| p.name }).to eq ['user', 'language']
+    expect(raml2.resources[0].base_uri_parameters['user'].description).to eq 'The user'
+    expect(raml2.resources[1].base_uri_parameters['user'].description).to eq 'The user'
+    expect(raml2.resources[2].base_uri_parameters['user'].description).to eq 'Changed'
   end
 
   it 'handle secured by' do
@@ -196,12 +209,19 @@ RSpec.describe RamlParser::Parser do
 
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
-    files.select { |f| not f =~ /-bad\.raml$/ }.each { |f|
+    files.each { |f|
       result = RamlParser::Parser.parse_file_with_marks(f)
 
       expect(result[:marks]).to all(satisfy do |p,m|
         m == :used or m == :unsupported
       end)
+    }
+  end
+
+  it 'fail on any bad example RAML file' do
+    files = Dir.glob('spec/examples/raml_bad/**/*.raml')
+    files.each { |f|
+      expect { RamlParser::Parser.parse_file_with_marks(f) }.to raise_error
     }
   end
 end

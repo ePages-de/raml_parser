@@ -38,6 +38,10 @@ module RamlParser
       root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_map { |n| n }
       root.traits = node.hash('traits').mark_all(:used).arrayhash_map { |n| n }
 
+      implicit_base_uri_parameters = extract_uri_parameters(root.base_uri)
+      explicit_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
+      root.base_uri_parameters = implicit_base_uri_parameters.merge(explicit_base_uri_parameters)
+
       root.resources = traverse_resources(node, nil) do |n,parent|
         parent_absolute_uri = parent != nil ? parent.absolute_uri : root.base_uri || ''
         parent_relative_uri = parent != nil ? parent.relative_uri : ''
@@ -58,8 +62,13 @@ module RamlParser
       resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq
       resource.methods = Hash[find_method_nodes(node).map { |n| [n.key, parse_method(n, root, resource, as_resource_type)] }]
 
+      root_base_uri_parameters = root.base_uri_parameters
+      own_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
+      resource.base_uri_parameters = root_base_uri_parameters.merge(own_base_uri_parameters)
+
       implicit_uri_parameters = extract_uri_parameters(node.key)
       explicit_uri_parameters = node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }
+      raise 'Can only explicitly specify URI parameters from the current relative URI' unless as_resource_type or (explicit_uri_parameters.keys - implicit_uri_parameters.keys).empty?
       resource.uri_parameters = parent_uri_parameters.merge(implicit_uri_parameters).merge(explicit_uri_parameters)
 
       unless as_resource_type
