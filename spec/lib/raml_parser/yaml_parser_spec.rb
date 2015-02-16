@@ -13,30 +13,26 @@ RSpec.describe RamlParser::YamlHelper do
   end
 end
 
-RSpec.describe RamlParser::YamlTree do
-  it 'has a working map method' do
-    yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/simple.yml')
-    tree = RamlParser::YamlTree.new(yml)
-
-    expect(tree.root.map { |node| node.path }).to eq ['root.foo', 'root.empty']
-    expect(tree.root.map { |node| node.value }).to eq ['bar', nil]
+RSpec.describe RamlParser::YamlNode do
+  it 'has a working array/array_map method' do
+    yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/traversing.yml')
+    root = RamlParser::YamlNode.new(nil, 'root', yml)
+    expect(root.hash('array').array(0).value).to eq 'foo'
+    expect(root.hash('array').array_map { |n| n.key }).to eq ['[0]', '[1]']
   end
 
-  it 'has a working flatten method' do
+  it 'has a working hash/hash_map method' do
     yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/traversing.yml')
-    tree = RamlParser::YamlTree.new(yml)
+    root = RamlParser::YamlNode.new(nil, 'root', yml)
+    expect(root.hash('integer').value).to eq 10
+    expect(root.hash_map { |n| 0 }).to eq ({'string'=>0, 'integer'=>0, 'hash'=>0, 'array'=>0, 'array_complex'=>0})
+  end
 
-    expect(tree.flatten.map { |n| n.path }).to eq [
-      'root',
-      'root.string',
-      'root.integer',
-      'root.hash',
-      'root.hash.apple',
-      'root.array',
-      'root.array.[0]',
-      'root.array.[1]',
-      'root.array.[1].bar',
-      'root.array.[1].bar.sub'
-    ]
+  it 'has a working arrayhash/arrayhash_map method' do
+    yml = RamlParser::YamlHelper.read_yaml('spec/examples/yaml/traversing.yml')
+    root = RamlParser::YamlNode.new(nil, 'root', yml)
+    expect(root.hash('array_complex').arrayhash(0).key).to eq 'foo'
+    expect(root.hash('array_complex').arrayhash(0).value).to eq nil
+    expect(root.hash('array_complex').arrayhash_map { |n| n.value }).to eq ({'foo'=>nil, 'bar'=>{'sub'=>'element'}})
   end
 end

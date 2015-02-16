@@ -4,5 +4,8 @@ hash:
   apple: pie
 array:
   - foo
+  - bar
+array_complex:
+  - foo:
   - bar:
       sub: 'element'
