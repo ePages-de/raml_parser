@@ -89,6 +89,9 @@ RSpec.describe RamlParser::Parser do
     expect(raml.security_schemes['oauth_2_0'].type).to eq 'OAuth 2.0'
     expect(raml.security_schemes['oauth_1_0'].type).to eq 'OAuth 1.0'
     expect(raml.security_schemes['customHeader'].type).to eq nil
+
+    expect(raml.security_schemes['oauth_2_0'].settings['authorizationUri']).to eq 'https://www.dropbox.com/1/oauth2/authorize'
+    expect(raml.security_schemes['oauth_2_0'].described_by.headers['Authorization'].description).to start_with 'Used to send'
   end
 
   it 'parses documentation' do

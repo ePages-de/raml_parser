@@ -146,13 +146,11 @@ module RamlParser
     end
 
     def self.parse_security_scheme(node)
-      node.hash('describedBy').mark_all(:unsupported) if node.value.has_key? 'describedBy'
-
       node = node.or_default({})
       security_scheme = Model::SecurityScheme.new(node.key)
       security_scheme.type = node.hash('type').value
       security_scheme.description = node.hash('description').value
-      security_scheme.described_by = node.hash('describedBy').value
+      security_scheme.described_by = parse_method(node.hash('describedBy'), nil, nil, true)
       security_scheme.settings = node.hash('settings').mark_all(:used).value
       security_scheme
     end
