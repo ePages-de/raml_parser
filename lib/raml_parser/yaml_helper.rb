@@ -1,29 +1,12 @@
 module RamlParser
-  class YamlTree
-    attr_reader :root
-
-    def initialize(root)
-      @root = YamlNode.new(nil, 'root', root)
-    end
-
-    def flatten
-      def recursion(current)
-        [current] + current.map { |n| recursion(n) }
-      end
-
-      recursion(@root).flatten
-    end
-  end
-
   class YamlNode
-    attr_reader :parent, :key, :value
-    attr_accessor :data
+    attr_reader :parent, :key, :value, :marks
 
-    def initialize(parent, key, value, data = nil)
+    def initialize(parent, key, value)
       @parent = parent
       @key = key
       @value = value
-      @data = nil
+      @marks = {}
     end
 
     def root
@@ -42,25 +25,62 @@ module RamlParser
       end
     end
 
-    def each(&code)
-      self.map(&code)
-      return
+    def mark(what, p = path)
+      if parent.nil?
+        @marks[p] = what
+      else
+        @parent.mark(what, p)
+      end
+      self
     end
 
-    def map(&code)
+    def mark_all(what)
+      mark(what)
       if @value.is_a? Hash
-        @value.map { |k,v|
-          next_node = YamlNode.new(self, k, v)
-          code.call(next_node)
-        }
+        hash_map { |n| n.mark_all(what) }
       elsif @value.is_a? Array
-        @value.each_with_index.map { |v,i|
-          next_node = YamlNode.new(self, "[#{i}]", v)
-          code.call(next_node)
-        }
-      else
-        []
+        array_map { |n| n.mark_all(what) }
       end
+      self
+    end
+
+    def or_default(default)
+      @value != nil ? self : YamlNode.new(@parent, @key, default)
+    end
+
+    def array(index)
+      new_node = YamlNode.new(self, "[#{index}]", @value[index])
+      new_node.mark(:used)
+      new_node
+    end
+
+    def array_map(&code)
+      (@value || []).each_with_index.map { |_,i| code.call(array(i)) }
+    end
+
+    def hash(key)
+      new_node = YamlNode.new(self, key, @value[key])
+      new_node.mark(:used)
+      new_node
+    end
+
+    def hash_map(&code)
+      Hash[(@value || {}).map { |k,v| [k, code.call(hash(k))] }]
+    end
+
+    def arrayhash(index)
+      new_node = array(index)
+      new_node.mark(:used)
+      new_node2 = new_node.hash(new_node.value.first[0])
+      new_node2.mark(:used)
+      new_node2
+    end
+
+    def arrayhash_map(&code)
+      Hash[(@value || []).each_with_index.map { |_,i|
+        node = arrayhash(i)
+        [node.key, code.call(node)]
+      }]
     end
   end
 
