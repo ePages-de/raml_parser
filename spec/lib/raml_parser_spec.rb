@@ -97,6 +97,15 @@ RSpec.describe RamlParser::Parser do
     expect(raml.documentation[1].title).to eq 'FAQ'
   end
 
+  it 'parses schemas' do
+    raml = RamlParser::Parser.parse_file('spec/examples/raml/schemas.raml')
+    expect(raml.schemas['schema1']).to start_with '<?xml version="1.1"?>'
+    expect(raml.schemas['schema2']).to start_with '<?xml version="1.2"?>'
+    expect(raml.resources[0].methods['get'].bodies['text/xml'].schema).to start_with '<?xml version="1.1"?>'
+    expect(raml.resources[0].methods['post'].bodies['text/xml'].schema).to start_with '<?xml version="1.2"?>'
+    expect(raml.resources[0].methods['put'].bodies['text/xml'].schema).to start_with '<?xml version="1.3"?>'
+  end
+
   it 'handle secured by' do
     raml1 = RamlParser::Parser.parse_file('spec/examples/raml/securedby1.raml')
     expect(raml1.resources[0].methods['get'].secured_by).to eq ['oauth_1_0']

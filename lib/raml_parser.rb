@@ -28,8 +28,6 @@ module RamlParser
     end
 
     def self.parse_root(node)
-      node.hash('schemas').mark_all(:unsupported) if node.value.has_key? 'schemas'
-
       root = Model::Root.new
       root.title = node.hash('title').or_default('').value
       root.base_uri = node.hash('baseUri').or_default('').value
@@ -37,6 +35,7 @@ module RamlParser
       root.media_type = node.hash('mediaType').value
       root.secured_by = node.hash('securedBy').or_default([]).array_map { |n| n.value }
       root.documentation = node.hash('documentation').array_map { |n| parse_documenation(n) }
+      root.schemas = node.hash('schemas').arrayhash_map { |n| n.value }
       root.security_schemes = node.hash('securitySchemes').arrayhash_map { |n| parse_security_scheme(n) }
       root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_map { |n| n }
       root.traits = node.hash('traits').mark_all(:used).arrayhash_map { |n| n }
@@ -86,8 +85,8 @@ module RamlParser
       method.display_name = node.hash('displayName').value
       method.description = node.hash('description').value
       method.query_parameters = node.hash('queryParameters').hash_map { |n| parse_named_parameter(n) }
-      method.bodies = node.hash('body').hash_map { |n| parse_body(n) }
-      method.responses = node.hash('responses').hash_map { |n| parse_response(n) }
+      method.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
+      method.responses = node.hash('responses').hash_map { |n| parse_response(n, root) }
       method.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
       method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq if resource
       method.is = parse_is(node.hash('is'))
@@ -100,12 +99,12 @@ module RamlParser
       method
     end
 
-    def self.parse_response(node)
+    def self.parse_response(node, root)
       node = node.or_default({})
       response = Model::Response.new(node.key)
       response.display_name = node.hash('displayName').value
       response.description = node.hash('description').value
-      response.bodies = node.hash('body').hash_map { |n| parse_body(n) }
+      response.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
       response.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
       response
     end
@@ -135,11 +134,12 @@ module RamlParser
       named_parameter
     end
 
-    def self.parse_body(node)
+    def self.parse_body(node, root)
       node = node.or_default({})
       body = Model::Body.new(node.key)
       body.example = node.hash('example').value
       body.schema = node.hash('schema').value
+      body.schema = root.schemas[body.schema] if root.schemas.has_key? body.schema
       body.form_parameters = node.hash('formParameters').hash_map { |n| parse_named_parameter(n) }
       # TODO: Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data
       body

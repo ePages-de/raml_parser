@@ -1,0 +1,41 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+schemas:
+  - schema1: |
+      <?xml version="1.1"?>
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:element name="note">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="to" type="xs:string"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:schema>
+  - schema2: |
+      <?xml version="1.2"?>
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:element name="note">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="from" type="xs:string"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:schema>
+/route:
+  get:
+    body:
+      text/xml:
+        schema: schema1
+  post:
+    body:
+      text/xml:
+        schema: schema2
+  put:
+    body:
+      text/xml:
+        schema: |
+          <?xml version="1.3"?>
