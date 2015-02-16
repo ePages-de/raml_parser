@@ -22,7 +22,24 @@ And then execute:
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+require 'raml_parser'
+
+raml = RamlParser::Parser.parse_file('path/to/api.raml')
+
+# generate some markdown out of it
+for res in raml.resources
+  puts '# Resource ' + res.absolute_uri + "\n\n"
+  for name, meth in res.methods
+    puts '## Method ' + meth.method + "\n\n"
+    unless meth.description.nil?
+      puts meth.description + "\n\n"
+    else
+      puts "(TODO)\n\n"
+    end
+  end
+end
+```
 
 ## What parts of RAML are not supported
 
