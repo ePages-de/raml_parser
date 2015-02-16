@@ -191,18 +191,12 @@ RSpec.describe RamlParser::Parser do
 
   it 'does not fail on any example RAML file' do
     files = Dir.glob('spec/examples/raml/**/*.raml')
-    files.each { |f|
-      known_unused = %w()
-      known_unsupported = %w(root.schemas .describedBy .someMultipartFormParamWithMultipleTypes)
-
+    files.select { |f| not f =~ /-bad\.raml$/ }.each { |f|
       result = RamlParser::Parser.parse_file_with_marks(f)
-      unused = result[:marks].select { |_,m| m == :unused }
-      unsupported = result[:marks].select { |_,m| m == :unsupported }
-      unknown = result[:marks].select { |_,m| not [:used, :unused, :unsupported].include? m }
 
-      expect(unused.select { |p,_| not known_unused.any? { |k| p.include? k} }).to eq ({})
-      expect(unsupported.select { |p,_| not known_unsupported.any? { |k| p.include? k} }).to eq ({})
-      expect(unknown).to eq ({})
+      expect(result[:marks]).to all(satisfy do |p,m|
+        m == :used or m == :unsupported
+      end)
     }
   end
 end
