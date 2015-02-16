@@ -109,6 +109,11 @@ RSpec.describe RamlParser::Parser do
     expect(raml.resources[0].methods['put'].bodies['text/xml'].schema).to start_with '<?xml version="1.3"?>'
   end
 
+  it 'parses base URI parameters' do
+    raml1 = RamlParser::Parser.parse_file('spec/examples/raml/baseuriparameters1.raml')
+    expect(raml1.resources[0].absolute_uri).to eq 'http://localhost:3000/v4/a'
+  end
+
   it 'handle secured by' do
     raml1 = RamlParser::Parser.parse_file('spec/examples/raml/securedby1.raml')
     expect(raml1.resources[0].methods['get'].secured_by).to eq ['oauth_1_0']

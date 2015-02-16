@@ -28,8 +28,8 @@ module RamlParser
     def self.parse_root(node)
       root = Model::Root.new
       root.title = node.hash('title').or_default('').value
-      root.base_uri = node.hash('baseUri').or_default('').value
       root.version = node.hash('version').value
+      root.base_uri = node.hash('baseUri').or_default('').value.gsub('{version}', root.version || '')
       root.media_type = node.hash('mediaType').value
       root.secured_by = node.hash('securedBy').or_default([]).array_map { |n| n.value }
       root.documentation = node.hash('documentation').array_map { |n| parse_documenation(n) }
