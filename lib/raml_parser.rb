@@ -6,11 +6,13 @@ module RamlParser
     attr_reader :path, :root
 
     def self.parse_file(path)
+      ensure_raml_0_8(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
       parse_root(node)
     end
 
     def self.parse_file_with_marks(path)
+      ensure_raml_0_8(path)
       node = YamlNode.new(nil, 'root', YamlHelper.read_yaml(path))
       node.mark_all(:unused)
       node.mark(:used)
@@ -19,6 +21,11 @@ module RamlParser
     end
 
     private
+
+    def self.ensure_raml_0_8(path)
+      first_line = File.open(path) { |f| f.readline }.strip
+      raise "File #{path} does not start with RAML 0.8 comment" unless first_line == '#%RAML 0.8'
+    end
 
     def self.parse_root(node)
       node.hash('schemas').mark_all(:unsupported) if node.value.has_key? 'schemas'
