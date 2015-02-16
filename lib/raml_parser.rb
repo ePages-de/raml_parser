@@ -62,12 +62,7 @@ module RamlParser
       resource.type = parse_type(node.hash('type'))
       resource.is = parse_is(node.hash('is'))
       resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq
-
-      for m in %w(get post put delete head patch options trace connect) do
-        if node.value.has_key? m
-          resource.methods[m] = parse_method(node.hash(m), root, resource, as_resource_type)
-        end
-      end
+      resource.methods = Hash[find_method_nodes(node).map { |n| [n.key, parse_method(n, root, resource, as_resource_type)] }]
 
       unless as_resource_type
         resource = mixin_resource_types(node, root, resource)
@@ -259,15 +254,25 @@ module RamlParser
       YamlNode.new(node.parent, node.key, traverse(node.value, params, node))
     end
 
+    def self.find_resource_nodes(node)
+      def self.is_resource(key)
+        key =~ /^\//
+      end
+      (node.value || {}).select { |k,_| is_resource(k) }.map { |k,_| node.hash(k) }
+    end
+
+    def self.find_method_nodes(node)
+      def self.is_method(key)
+        %w(get post put delete head patch options trace connect).include? key
+      end
+      (node.value || {}).select { |k,_| is_method(k) }.map { |k,_| node.hash(k) }
+    end
+
     def self.traverse_resources(node, parent_resource, &code)
-      node.hash_map { |n|
-        if n.key =~ /^\//
-          resource = code.call(n, parent_resource)
-          [resource] + traverse_resources(n, resource, &code)
-        else
-          []
-        end
-      }.values.flatten
+      find_resource_nodes(node).map { |n|
+        resource = code.call(n, parent_resource)
+        [resource] + traverse_resources(n, resource, &code)
+      }.flatten
     end
   end
 end
