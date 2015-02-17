@@ -35,8 +35,8 @@ module RamlParser
       root.documentation = node.hash('documentation').array_values { |n| parse_documenation(n) }
       root.schemas = node.hash('schemas').arrayhash_values { |n| n.value }
       root.security_schemes = node.hash('securitySchemes').arrayhash_values { |n| parse_security_scheme(n) }
-      root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_values { |n| n }
-      root.traits = node.hash('traits').mark_all(:used).arrayhash_values { |n| n }
+      root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_values { |n| n.value }
+      root.traits = node.hash('traits').mark_all(:used).arrayhash_values { |n| n.value }
 
       implicit_protocols = (root.base_uri.scan(/^(http|https):\/\//).first || []).map { |p| p.upcase }
       explicit_protocols = node.hash('protocols').array_values { |n| n.value }
@@ -57,9 +57,21 @@ module RamlParser
     end
 
     def self.parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_partial)
-      node = node.or_default({})
+      unless as_partial
+        type = parse_type(node.or_default({}).hash('type'))
+        params = {
+            'resourcePath' => parent_relative_uri + node.key,
+            'resourcePathName' => (parent_relative_uri + node.key).match(/[^\/]*$/).to_s,
+        }
+        raw = apply_mixins(node.value || {}, root.resource_types, type, params)
+
+        node = YamlNode.new(node.parent, node.key, raw)
+      else
+        node = node.or_default({})
+      end
+
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
-      resource.display_name = node.hash('displayName').value
+      resource.display_name = node.hash('displayName').or_default(resource.relative_uri).value
       resource.description = node.hash('description').value
       resource.type = parse_type(node.hash('type'))
       resource.is = parse_is(node.hash('is'))
@@ -75,16 +87,24 @@ module RamlParser
       raise 'Can only explicitly specify URI parameters from the current relative URI' unless as_partial or (explicit_uri_parameters.keys - implicit_uri_parameters.keys).empty?
       resource.uri_parameters = parent_uri_parameters.merge(implicit_uri_parameters).merge(explicit_uri_parameters)
 
-      unless as_partial
-        resource = mixin_resource_types(node, root, resource)
-        resource.display_name = resource.relative_uri unless resource.display_name
-      end
-
       resource
     end
 
     def self.parse_method(node, root, resource, as_partial)
-      node = node.or_default({})
+      unless as_partial
+        is = parse_is(node.parent.or_default({}).hash('is')).merge(parse_is(node.or_default({}).hash('is')))
+        params = {
+            'resourcePath' => resource.relative_uri,
+            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
+            'methodName' => node.key
+        }
+        raw = apply_mixins(node.value || {}, root.traits, is, params)
+
+        node = YamlNode.new(node.parent, node.key, raw)
+      else
+        node = node.or_default({})
+      end
+
       method = Model::Method.new(node.key.upcase)
       method.description = node.hash('description').value
       method.query_parameters = node.hash('queryParameters').hash_values { |n| parse_named_parameter(n, false) }
@@ -97,10 +117,6 @@ module RamlParser
       root_protocols = as_partial ? [] : root.protocols
       explicit_protocols = node.hash('protocols').array_values { |n| n.value }
       method.protocols = explicit_protocols.empty? ? root_protocols : explicit_protocols
-
-      unless as_partial
-        method = mixin_traits(node, root, method, resource)
-      end
 
       method
     end
@@ -173,7 +189,7 @@ module RamlParser
       node = node.or_default({}).mark_all(:used)
       result = {}
       if node.value.is_a? String
-        result = { node.value => nil }
+        result = { node.value => {} }
       elsif node.value.is_a? Hash
         result = node.value
       else
@@ -187,7 +203,7 @@ module RamlParser
       result = {}
       node.value.each { |n|
         if n.is_a? String
-          result = result.merge({ n => nil })
+          result = result.merge({ n => {} })
         elsif n.is_a? Hash
           result = result.merge(n)
         else
@@ -197,47 +213,19 @@ module RamlParser
       result
     end
 
-    def self.mixin_resource_types(node, root, resource)
-      result = Model::Resource.new(nil, nil)
-      resource.type.each do |name,value|
-        params = (value || {}).merge({
-            'resourcePath' => resource.relative_uri,
-            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s
-        })
-        resource_type = root.resource_types.has_key?(name) ? parse_resource(resolve_parametrization(root.resource_types[name], params), root, '', '', {}, true) : nil
-        if resource_type != nil
-          result = Model::Resource.merge(result, resource_type)
-        else
-          raise "Referencing unknown resource type #{name} at #{node.path}"
-        end
-      end
+    def self.apply_mixins(raw, mixins, params, additional_params)
+      result = params.map { |n,_| n }.inject({}) { |result,n| YamlHelper::merge_deep(result, mixins[n]) }
+      merged_params = params.map { |_,p| p }.inject({}) { |params,p| params.merge(p) }
+      merged_params = merged_params.merge(additional_params)
+      result = resolve_parametrization(result, merged_params)
 
-      Model::Resource.merge(result, resource)
+      YamlHelper::merge_deep(result, raw)
     end
 
-    def self.mixin_traits(node, root, method, resource)
-      result = Model::Method.new(nil)
-      (resource.is.merge(method.is)).each do |name,value|
-        params = (value || {}).merge({
-            'resourcePath' => resource.relative_uri,
-            'resourcePathName' => resource.relative_uri.match(/[^\/]*$/).to_s,
-            'methodName' => method.method.downcase
-        })
-        trait = root.traits.has_key?(name) ? parse_method(resolve_parametrization(root.traits[name], params), root, nil, true) : nil
-        if trait != nil
-          result = Model::Method.merge(result, trait)
-        else
-          raise "Referencing unknown trait #{name} at #{node.path}"
-        end
-      end
-
-      Model::Method.merge(result, method)
-    end
-
-    def self.resolve_parametrization(node, params)
+    def self.resolve_parametrization(raw, params)
       require 'active_support/core_ext/string/inflections'
 
-      def self.alter_string(str, params, node)
+      def self.alter_string(str, params)
         str.gsub(/<<([a-zA-Z]+)(\s*\|\s*!([a-zA-Z_\-]+))?>>/) do |a,b|
           case $3
             when nil
@@ -247,24 +235,24 @@ module RamlParser
             when 'pluralize'
               params[$1].to_s.pluralize
             else
-              raise "Using unknown parametrization function #{$3} at #{node.path}"
+              raise "Using unknown parametrization function #{$3}"
           end
         end
       end
 
-      def self.traverse(raw, params, node)
+      def self.traverse(raw, params)
         if raw.is_a? Hash
-          Hash[raw.map { |k,v| [traverse(k, params, node), traverse(v, params, node)] }]
+          Hash[raw.map { |k,v| [traverse(k, params), traverse(v, params)] }]
         elsif raw.is_a? Array
-          raw.map { |i| traverse(i, params, node) }
+          raw.map { |i| traverse(i, params) }
         elsif raw.is_a? String
-          alter_string(raw, params, node)
+          alter_string(raw, params)
         else
           raw
         end
       end
 
-      YamlNode.new(node.parent, node.key, traverse(node.value, params, node))
+      traverse(raw, params)
     end
 
     def self.find_resource_nodes(node)

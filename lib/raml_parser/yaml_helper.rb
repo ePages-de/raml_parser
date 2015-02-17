@@ -118,5 +118,30 @@ module RamlParser
     def self.dump_yaml(yaml)
       YAML.dump(yaml)
     end
+
+    def self.merge_deep(left, right)
+      if left.nil?
+        right
+      elsif right.nil?
+        left
+      elsif left.is_a? Hash and right.is_a? Hash
+        result = {}
+        for k in left.keys
+          if right.has_key? k
+            result[k] = merge_deep(left[k], right[k])
+          else
+            result[k] = left[k]
+          end
+        end
+        for k in right.keys - left.keys
+          result[k] = right[k]
+        end
+        result
+      elsif left.is_a? Array and right.is_a? Array
+        (left + right).uniq
+      else
+        right
+      end
+    end
   end
 end
