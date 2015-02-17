@@ -82,7 +82,6 @@ module RamlParser
     def self.parse_method(node, root, resource, as_trait)
       node = node.or_default({})
       method = Model::Method.new(node.key.upcase)
-      method.display_name = node.hash('displayName').value
       method.description = node.hash('description').value
       method.query_parameters = node.hash('queryParameters').hash_map { |n| parse_named_parameter(n) }
       method.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
@@ -93,7 +92,6 @@ module RamlParser
 
       unless as_trait
         method = mixin_traits(node, root, method, resource)
-        method.display_name = method.method + ' ' + resource.relative_uri unless method.display_name
       end
 
       method
