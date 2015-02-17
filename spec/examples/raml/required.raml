@@ -1,0 +1,24 @@
+#%RAML 0.8
+---
+title: Example API
+baseUri: http://localhost:3000
+/a/{b}:
+/c/{d}:
+  uriParameters:
+    d:
+/e/{f}:
+  uriParameters:
+    f:
+      required: false
+/g/{h}:
+  uriParameters:
+    h:
+      required: true
+/i:
+  get:
+    queryParameters:
+      j:
+      k:
+        required: false
+      l:
+        required: true

@@ -198,6 +198,17 @@ RSpec.describe RamlParser::Parser do
     expect(raml4.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].display_name).to eq 'PingPong'
   end
 
+  it 'properly sets required property' do
+    raml = RamlParser::Parser.parse_file('spec/examples/raml/required.raml')
+    expect(raml.resources[0].uri_parameters['b'].required).to eq true
+    expect(raml.resources[1].uri_parameters['d'].required).to eq true
+    expect(raml.resources[2].uri_parameters['f'].required).to eq false
+    expect(raml.resources[3].uri_parameters['h'].required).to eq true
+    expect(raml.resources[4].methods['get'].query_parameters['j'].required).to eq false
+    expect(raml.resources[4].methods['get'].query_parameters['k'].required).to eq false
+    expect(raml.resources[4].methods['get'].query_parameters['l'].required).to eq true
+  end
+
   it 'fixed issue #2' do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/issue2.raml')
     expect(raml.resources[0].methods.keys).to eq ['post', 'get']
