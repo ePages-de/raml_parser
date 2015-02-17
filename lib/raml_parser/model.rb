@@ -53,11 +53,10 @@ module RamlParser
     end
 
     class Method
-      attr_accessor :method, :display_name, :description, :query_parameters, :responses, :bodies, :headers, :is, :protocols, :secured_by
+      attr_accessor :method, :description, :query_parameters, :responses, :bodies, :headers, :is, :protocols, :secured_by
 
-      def initialize(method, display_name = nil, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {}, protocols = [], secured_by = [])
+      def initialize(method, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {}, protocols = [], secured_by = [])
         @method = method
-        @display_name = display_name
         @description = description
         @query_parameters = query_parameters
         @responses = responses
@@ -71,7 +70,6 @@ module RamlParser
       def self.merge(a, b)
         method = Method.new(b.method)
 
-        method.display_name = if b.display_name then b.display_name else a.display_name end
         method.description = if b.description then b.description else a.description end
         method.query_parameters = a.query_parameters.merge(b.query_parameters)
         method.responses = a.responses.merge(b.responses)

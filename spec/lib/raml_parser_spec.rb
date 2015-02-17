@@ -48,9 +48,7 @@ RSpec.describe RamlParser::Parser do
   it 'parses methods' do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/methods.raml')
     expect(raml.resources[0].methods['get'].method).to eq 'GET'
-    expect(raml.resources[0].methods['get'].display_name).to eq 'GET /a'
     expect(raml.resources[1].methods['get'].method).to eq 'GET'
-    expect(raml.resources[1].methods['get'].display_name).to eq 'This is /a/b'
   end
 
   it 'parses responses' do
@@ -167,10 +165,8 @@ RSpec.describe RamlParser::Parser do
   it 'mixes in traits' do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/traits.raml')
     expect(raml.resources[0].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order']
-    expect(raml.resources[0].methods['get'].display_name).to eq 'Foo'
     expect(raml.resources[0].methods['get'].description).to eq 'This is sortable'
     expect(raml.resources[1].methods['get'].query_parameters.map { |name,_| name }).to eq ['q', 'key', 'order', 'sort']
-    expect(raml.resources[1].methods['get'].display_name).to eq '/a/b'
     expect(raml.resources[1].methods['get'].description).to eq 'This is resource /a/b'
     expect(raml.resources[2].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order']
     expect(raml.resources[3].methods['get'].query_parameters.map { |name,_| name }).to eq ['key', 'order', 'q']
@@ -197,13 +193,9 @@ RSpec.describe RamlParser::Parser do
     expect(raml3.resources[0].methods['get'].query_parameters['q1'].display_name).to eq 'q1'
     expect(raml3.resources[1].methods['get'].query_parameters['q2'].display_name).to eq 'This is the second query parameter'
 
-    raml4 = RamlParser::Parser.parse_file('spec/examples/raml/methods.raml')
-    expect(raml4.resources[0].methods['get'].display_name).to eq 'GET /a'
-    expect(raml4.resources[1].methods['get'].display_name).to eq 'This is /a/b'
-
-    raml5 = RamlParser::Parser.parse_file('spec/examples/raml/headers.raml')
-    expect(raml5.resources[0].methods['get'].headers['X-Foobar-Ping'].display_name).to eq 'X-Foobar-Ping'
-    expect(raml5.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].display_name).to eq 'PingPong'
+    raml4 = RamlParser::Parser.parse_file('spec/examples/raml/headers.raml')
+    expect(raml4.resources[0].methods['get'].headers['X-Foobar-Ping'].display_name).to eq 'X-Foobar-Ping'
+    expect(raml4.resources[0].methods['get'].responses[200].headers['X-Foobar-Pong'].display_name).to eq 'PingPong'
   end
 
   it 'fixed issue #2' do
