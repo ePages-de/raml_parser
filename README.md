@@ -16,6 +16,12 @@ source 'https://rubygems.org'
 gem 'raml_parser'
 ```
 
+or for bleeding edge:
+
+```ruby
+gem 'raml_parser', :git => 'https://github.com/ePages-de/raml_parser.git', :branch => 'develop'
+```
+
 And then execute:
 
     $ bundle
