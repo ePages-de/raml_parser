@@ -37,9 +37,9 @@ module RamlParser
     def mark_all(what)
       mark(what)
       if @value.is_a? Hash
-        hash_map { |n| n.mark_all(what) }
+        hash_values { |n| n.mark_all(what) }
       elsif @value.is_a? Array
-        array_map { |n| n.mark_all(what) }
+        array_values { |n| n.mark_all(what) }
       end
       self
     end
@@ -54,7 +54,7 @@ module RamlParser
       new_node
     end
 
-    def array_map(&code)
+    def array_values(&code)
       (@value || []).each_with_index.map { |_,i| code.call(array(i)) }
     end
 
@@ -64,7 +64,7 @@ module RamlParser
       new_node
     end
 
-    def hash_map(&code)
+    def hash_values(&code)
       Hash[(@value || {}).map { |k,v| [k, code.call(hash(k))] }]
     end
 
@@ -76,7 +76,7 @@ module RamlParser
       new_node2
     end
 
-    def arrayhash_map(&code)
+    def arrayhash_values(&code)
       Hash[(@value || []).each_with_index.map { |_,i|
         node = arrayhash(i)
         [node.key, code.call(node)]

@@ -31,15 +31,19 @@ module RamlParser
       root.version = node.hash('version').value
       root.base_uri = node.hash('baseUri').or_default('').value.gsub('{version}', root.version || '')
       root.media_type = node.hash('mediaType').value
-      root.secured_by = node.hash('securedBy').or_default([]).array_map { |n| n.value }
-      root.documentation = node.hash('documentation').array_map { |n| parse_documenation(n) }
-      root.schemas = node.hash('schemas').arrayhash_map { |n| n.value }
-      root.security_schemes = node.hash('securitySchemes').arrayhash_map { |n| parse_security_scheme(n) }
-      root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_map { |n| n }
-      root.traits = node.hash('traits').mark_all(:used).arrayhash_map { |n| n }
+      root.secured_by = node.hash('securedBy').or_default([]).array_values { |n| n.value }
+      root.documentation = node.hash('documentation').array_values { |n| parse_documenation(n) }
+      root.schemas = node.hash('schemas').arrayhash_values { |n| n.value }
+      root.security_schemes = node.hash('securitySchemes').arrayhash_values { |n| parse_security_scheme(n) }
+      root.resource_types = node.hash('resourceTypes').mark_all(:used).arrayhash_values { |n| n }
+      root.traits = node.hash('traits').mark_all(:used).arrayhash_values { |n| n }
 
-      implicit_base_uri_parameters = extract_uri_parameters(root.base_uri)
-      explicit_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
+      implicit_protocols = (root.base_uri.scan(/^(http|https):\/\//).first || []).map { |p| p.upcase }
+      explicit_protocols = node.hash('protocols').array_values { |n| n.value }
+      root.protocols = explicit_protocols.empty? ? implicit_protocols : explicit_protocols
+
+      implicit_base_uri_parameters = extract_uri_parameters(root.base_uri, true)
+      explicit_base_uri_parameters = node.hash('baseUriParameters').hash_values { |n| parse_named_parameter(n, true) }
       root.base_uri_parameters = implicit_base_uri_parameters.merge(explicit_base_uri_parameters)
 
       root.resources = traverse_resources(node, nil) do |n,parent|
@@ -52,26 +56,26 @@ module RamlParser
       root
     end
 
-    def self.parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_resource_type)
+    def self.parse_resource(node, root, parent_absolute_uri, parent_relative_uri, parent_uri_parameters, as_partial)
       node = node.or_default({})
       resource = Model::Resource.new(parent_absolute_uri + node.key, parent_relative_uri + node.key)
       resource.display_name = node.hash('displayName').value
       resource.description = node.hash('description').value
       resource.type = parse_type(node.hash('type'))
       resource.is = parse_is(node.hash('is'))
-      resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq
-      resource.methods = Hash[find_method_nodes(node).map { |n| [n.key, parse_method(n, root, resource, as_resource_type)] }]
+      resource.secured_by = (root.secured_by + node.hash('securedBy').or_default([]).array_values { |n| n.value }).uniq
+      resource.methods = Hash[find_method_nodes(node).map { |n| [n.key, parse_method(n, root, resource, as_partial)] }]
 
       root_base_uri_parameters = root.base_uri_parameters
-      own_base_uri_parameters = node.hash('baseUriParameters').hash_map { |n| parse_named_parameter(n) }
+      own_base_uri_parameters = node.hash('baseUriParameters').hash_values { |n| parse_named_parameter(n, true) }
       resource.base_uri_parameters = root_base_uri_parameters.merge(own_base_uri_parameters)
 
-      implicit_uri_parameters = extract_uri_parameters(node.key)
-      explicit_uri_parameters = node.hash('uriParameters').hash_map { |n| parse_named_parameter(n) }
-      raise 'Can only explicitly specify URI parameters from the current relative URI' unless as_resource_type or (explicit_uri_parameters.keys - implicit_uri_parameters.keys).empty?
+      implicit_uri_parameters = extract_uri_parameters(node.key, true)
+      explicit_uri_parameters = node.hash('uriParameters').hash_values { |n| parse_named_parameter(n, true) }
+      raise 'Can only explicitly specify URI parameters from the current relative URI' unless as_partial or (explicit_uri_parameters.keys - implicit_uri_parameters.keys).empty?
       resource.uri_parameters = parent_uri_parameters.merge(implicit_uri_parameters).merge(explicit_uri_parameters)
 
-      unless as_resource_type
+      unless as_partial
         resource = mixin_resource_types(node, root, resource)
         resource.display_name = resource.relative_uri unless resource.display_name
       end
@@ -79,18 +83,22 @@ module RamlParser
       resource
     end
 
-    def self.parse_method(node, root, resource, as_trait)
+    def self.parse_method(node, root, resource, as_partial)
       node = node.or_default({})
       method = Model::Method.new(node.key.upcase)
       method.description = node.hash('description').value
-      method.query_parameters = node.hash('queryParameters').hash_map { |n| parse_named_parameter(n) }
-      method.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
-      method.responses = node.hash('responses').hash_map { |n| parse_response(n, root) }
-      method.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
-      method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).array_map { |n| n.value }).uniq if resource
+      method.query_parameters = node.hash('queryParameters').hash_values { |n| parse_named_parameter(n, false) }
+      method.bodies = node.hash('body').hash_values { |n| parse_body(n, root) }
+      method.responses = node.hash('responses').hash_values { |n| parse_response(n, root) }
+      method.headers = node.hash('headers').hash_values { |n| parse_named_parameter(n, false) }
+      method.secured_by = (resource.secured_by + node.hash('securedBy').or_default([]).array_values { |n| n.value }).uniq if resource
       method.is = parse_is(node.hash('is'))
 
-      unless as_trait
+      root_protocols = as_partial ? [] : root.protocols
+      explicit_protocols = node.hash('protocols').array_values { |n| n.value }
+      method.protocols = explicit_protocols.empty? ? root_protocols : explicit_protocols
+
+      unless as_partial
         method = mixin_traits(node, root, method, resource)
       end
 
@@ -102,12 +110,12 @@ module RamlParser
       response = Model::Response.new(node.key)
       response.display_name = node.hash('displayName').value
       response.description = node.hash('description').value
-      response.bodies = node.hash('body').hash_map { |n| parse_body(n, root) }
-      response.headers = node.hash('headers').hash_map { |n| parse_named_parameter(n) }
+      response.bodies = node.hash('body').hash_values { |n| parse_body(n, root) }
+      response.headers = node.hash('headers').hash_values { |n| parse_named_parameter(n, false) }
       response
     end
 
-    def self.parse_named_parameter(node)
+    def self.parse_named_parameter(node, required_per_default)
       if node.value.is_a? Array
         node.mark_all(:unsupported)
         # TODO: Not yet supported named parameters with multiple types
@@ -119,7 +127,7 @@ module RamlParser
       named_parameter.type = node.hash('type').or_default('string').value
       named_parameter.display_name = node.hash('displayName').or_default(named_parameter.name).value
       named_parameter.description = node.hash('description').value
-      named_parameter.required = node.hash('required').or_default(true).value
+      named_parameter.required = node.hash('required').or_default(required_per_default).value
       named_parameter.default = node.hash('default').value
       named_parameter.example = node.hash('example').value
       named_parameter.min_length = node.hash('minLength').value
@@ -127,7 +135,7 @@ module RamlParser
       named_parameter.minimum = node.hash('minimum').value
       named_parameter.maximum = node.hash('maximum').value
       named_parameter.repeat = node.hash('repeat').value
-      named_parameter.enum = node.hash('enum').or_default([]).array_map { |n| n.value }
+      named_parameter.enum = node.hash('enum').or_default([]).array_values { |n| n.value }
       named_parameter.pattern = node.hash('pattern').value
       named_parameter
     end
@@ -138,7 +146,7 @@ module RamlParser
       body.example = node.hash('example').value
       body.schema = node.hash('schema').value
       body.schema = root.schemas[body.schema] if root.schemas.has_key? body.schema
-      body.form_parameters = node.hash('formParameters').hash_map { |n| parse_named_parameter(n) }
+      body.form_parameters = node.hash('formParameters').hash_values { |n| parse_named_parameter(n, false) }
       # TODO: Form parameters are only allowed for media type application/x-www-form-urlencoded or multipart/form-data
       body
     end
@@ -273,9 +281,9 @@ module RamlParser
       (node.value || {}).select { |k,_| is_method(k) }.map { |k,_| node.hash(k) }
     end
 
-    def self.extract_uri_parameters(uri)
+    def self.extract_uri_parameters(uri, required_per_default)
       names = uri.scan(/\{([a-zA-Z\_\-]+)\}/).map { |m| m.first }
-      Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name)] }]
+      Hash[names.map { |name| [name, Model::NamedParameter.new(name, 'string', name, nil, required_per_default)] }]
     end
 
     def self.traverse_resources(node, parent_resource, &code)

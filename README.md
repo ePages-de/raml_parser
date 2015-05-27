@@ -16,20 +16,43 @@ source 'https://rubygems.org'
 gem 'raml_parser'
 ```
 
+or for bleeding edge:
+
+```ruby
+gem 'raml_parser', :git => 'https://github.com/ePages-de/raml_parser.git', :branch => 'develop'
+```
+
 And then execute:
 
     $ bundle
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+require 'raml_parser'
+
+raml = RamlParser::Parser.parse_file('path/to/api.raml')
+
+# generate some markdown out of it
+for res in raml.resources
+  puts '# Resource ' + res.absolute_uri + "\n\n"
+  for name, meth in res.methods
+    puts '## Method ' + meth.method + "\n\n"
+    unless meth.description.nil?
+      puts meth.description + "\n\n"
+    else
+      puts "(TODO)\n\n"
+    end
+  end
+end
+```
 
 ## What parts of RAML are not supported
 
 These are features of the RAML 0.8 specification that are not fully handled yet. This list should be complete, i.e. everything not listed here should work.
 
-* [Protocols](http://raml.org/spec.html#protocols)
 * [Named parameters with multiple types](http://raml.org/spec.html#named-parameters-with-multiple-types)
+* [Optional properties in resource types](http://raml.org/spec.html#optional-properties)
 
 ## Contributing
 

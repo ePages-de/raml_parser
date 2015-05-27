@@ -1,9 +1,9 @@
 module RamlParser
   module Model
     class Root
-      attr_accessor :title, :base_uri, :version, :media_type, :schemas, :security_schemes, :base_uri_parameters, :resource_types, :traits, :secured_by, :documentation, :resources
+      attr_accessor :title, :base_uri, :version, :media_type, :schemas, :security_schemes, :base_uri_parameters, :resource_types, :traits, :protocols, :secured_by, :documentation, :resources
 
-      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, schemas = {}, security_schemes = {}, base_uri_parameters = {}, resource_types = {}, traits = {}, secured_by = [], documentation = [], resources = [])
+      def initialize(title = nil, base_uri = nil, version = nil, media_type = nil, schemas = {}, security_schemes = {}, base_uri_parameters = {}, resource_types = {}, traits = {}, protocols = [], secured_by = [], documentation = [], resources = [])
         @title = title
         @base_uri = base_uri
         @version = version
@@ -13,6 +13,7 @@ module RamlParser
         @base_uri_parameters = base_uri_parameters
         @resource_types = resource_types
         @traits = traits
+        @protocols = protocols
         @secured_by = secured_by
         @documentation = documentation
         @resources = resources
@@ -52,9 +53,9 @@ module RamlParser
     end
 
     class Method
-      attr_accessor :method, :description, :query_parameters, :responses, :bodies, :headers, :is, :secured_by
+      attr_accessor :method, :description, :query_parameters, :responses, :bodies, :headers, :is, :protocols, :secured_by
 
-      def initialize(method, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {}, secured_by = [])
+      def initialize(method, description = nil, query_parameters = {}, responses = {}, bodies = {}, headers = {}, is = {}, protocols = [], secured_by = [])
         @method = method
         @description = description
         @query_parameters = query_parameters
@@ -62,6 +63,7 @@ module RamlParser
         @bodies = bodies
         @headers = headers
         @is = is
+        @protocols = protocols
         @secured_by = secured_by
       end
 
@@ -74,6 +76,7 @@ module RamlParser
         method.bodies = a.bodies.merge(b.bodies)
         method.headers = a.headers.merge(b.headers)
         method.is = a.is.merge(b.is)
+        method.protocols = (a.protocols + b.protocols).uniq
         method.secured_by = (a.secured_by + b.secured_by).uniq
 
         method
