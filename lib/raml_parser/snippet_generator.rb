@@ -22,7 +22,7 @@ module RamlParser
 
       query_parameters = map_nonempty(render_query_parameters(method.query_parameters.values)) { |s| '?' + s }
       js_content_type = map_nonempty(method.bodies.values.first) { |b| "xhr.setRequestHeader('Accept', '#{b.media_type}');\n" } || ''
-      data = map_nonempty(method.bodies.values.first) { |b| b.example.chop }
+      data = map_nonempty(method.bodies.values.first) { |b| (b.example || '').chop }
 
       result = "var xhr = new XMLHttpRequest();\n"
       result += "xhr.open('#{method.method.upcase}', '#{resource.absolute_uri + query_parameters}', true);\n"
