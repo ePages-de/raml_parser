@@ -22,7 +22,7 @@ module RamlParser
 
       query_parameters = map_nonempty(render_query_parameters(method.query_parameters.values)) { |s| '?' + s }
       js_content_type = map_nonempty(method.bodies.values.first) { |b| "xhr.setRequestHeader('Accept', '#{b.media_type}');\n" } || ''
-      data = map_nonempty(method.bodies.values.first) { |b| b.example.strip.gsub("\r\n", "\\r\\n").gsub("\n", "\\n") }
+      data = map_nonempty(method.bodies.values.first) { |b| (b.example || '').chop }
 
       result = "var xhr = new XMLHttpRequest();\n"
       result += "xhr.open('#{method.method.upcase}', '#{resource.absolute_uri + query_parameters}', true);\n"
@@ -32,6 +32,29 @@ module RamlParser
       result += "};\n"
       result += js_content_type
       result += "xhr.send(\"#{data}\");"
+
+      result
+    end
+
+    def ruby(resource, method_name)
+      method = resource.methods[method_name]
+      send_method = method.method.downcase == 'post' || method.method.downcase == 'put'
+      query_parameters = map_nonempty(render_query_parameters(method.query_parameters.values)) { |s| '?' + s } || ''
+      uri = "#{resource.absolute_uri}#{query_parameters}"
+
+      data = map_nonempty(method.bodies.values.first) { |b| b.example.chop }
+      headers = { 'Accept' => map_nonempty(method.bodies.values.first) { |b| b.media_type } }
+      headers = headers.delete_if {|key, value| value.nil? }
+
+      result = "require 'net/http'\n"
+      result += "require 'json'\n" if send_method
+      result += "uri = URI.parse('#{uri}')\n"
+      result += "headers = #{headers}\n" unless headers.empty?
+      result += "data = #{data}\n\n" if send_method
+      result += "req = Net::HTTP::#{method.method.capitalize}.new(uri.path"
+      result += headers.empty? ? ")\n" : ", initheader = headers)\n"
+      result += "req.body = data.to_json\n" if send_method
+      result += "response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }\n"
 
       result
     end
