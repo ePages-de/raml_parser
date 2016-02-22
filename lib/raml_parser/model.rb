@@ -44,6 +44,10 @@ module RamlParser
         resource.base_uri_parameters = a.base_uri_parameters.merge(b.base_uri_parameters)
         resource.uri_parameters = a.uri_parameters.merge(b.uri_parameters)
         resource.methods = a.methods.merge(b.methods)
+        resource.methods.keys.each do |meth|
+          next if a.methods[meth].nil?
+          resource.methods[meth] = Method.merge(a.methods[meth], resource.methods[meth])
+        end
         resource.type = a.type.merge(b.type)
         resource.is = a.is.merge(b.is)
         resource.secured_by = (a.secured_by + b.secured_by).uniq
