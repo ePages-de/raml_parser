@@ -174,6 +174,7 @@ RSpec.describe RamlParser::Parser do
 
   it 'mixes in resource types' do
     raml = RamlParser::Parser.parse_file('spec/examples/raml/resourcetypes.raml')
+    expect(raml.resources[0].methods['get'].query_parameters.keys).to eq %w(search size)
     expect(raml.resources[0].methods.keys).to eq ['get', 'post', 'put']
     expect(raml.resources[0].methods['get'].description).to eq 'Get all items'
     expect(raml.resources[0].methods['post'].description).to eq 'Overriden'

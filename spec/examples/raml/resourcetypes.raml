@@ -6,6 +6,10 @@ resourceTypes:
   - collection:
       description: A collection
       get:
+        queryParameters:
+          search:
+            description: Filter results by search
+            type: string
         description: Get all items
       post:
         description: Create a new item
@@ -14,3 +18,8 @@ resourceTypes:
   put:
   post:
     description: Overriden
+  get:
+    queryParameters:
+      size:
+        description: Filter results by size
+        type: string
